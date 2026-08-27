@@ -1,0 +1,75 @@
+---
+description: "Manual review checklist. Invoke with @90-review before merging or deploying anything."
+alwaysApply: false
+---
+
+# Review checklist
+
+Invoke this deliberately with `@90-review` on a diff or a feature before it ships.
+Answer each item with a specific line reference or an explicit "not applicable here".
+Do not answer "looks fine".
+
+## Money
+
+1. Is every currency value computed on the server, or does any path accept one from the
+   request body?
+2. Are `fuelCost`, `distanceKm`, `totalAmount`, `fuelPricePerLiter`, and `periodId`
+   ignored if present in a request?
+3. Are all currency columns `Int` rupiah? Any `Float` or `Decimal` anywhere near money?
+4. Does anything recompute a stored total instead of reading it?
+5. Could any change here alter the value of an already stored trip?
+
+## Authorization
+
+6. Does every route taking an `:id` filter by the caller's scope **inside the query**,
+   not in an `if` after the fetch?
+7. Does out of scope return **404**, not 403?
+8. Is the export endpoint scoped? It is the one most often missed.
+9. Is every role check on the server, and would it still hold if the request were sent
+   with curl instead of the browser?
+
+## Data integrity
+
+10. Does any handler with more than one write run inside a transaction?
+11. Is the period lock checked before every trip create, update, and delete, inside the
+    transaction?
+12. Were any database constraints moved into application code?
+13. If the schema changed: was the generated SQL read before applying, and was the
+    migration rehearsed on a Neon branch?
+
+## Frontend
+
+14. Does a failed save preserve every value in the form?
+15. Are all five entry speed mechanics still working: sticky technician and date,
+    Km Awal pre-fill, Kota pre-fill, recent notes, `Ctrl+Enter` save and refocus?
+16. Are all four empty states distinct in both text and action?
+17. Would the status badges still be distinguishable in greyscale?
+18. Is all user facing text in Bahasa Indonesia, and all code in English?
+19. Any dark surface added, or any `prefers-color-scheme` block?
+
+## Scope discipline
+
+20. Does this add anything from the out of scope list: notifications, charts, mobile,
+    offline, receipts, bulk operations, PDF export, browser print view?
+21. Does this add a dependency that was not already in `package.json`?
+22. Does this introduce a queue, cache, container, or worker that 800 rows a month
+    does not justify?
+
+## Secrets
+
+23. Is any connection string, password, or session secret present in a committed file?
+24. Is `.env.local` still git ignored?
+
+---
+
+## Output format
+
+For each item: **number, verdict, evidence.** Example:
+
+```
+6.  PASS   src/server/routes/periods.ts:41 — branchId is in the findFirst where clause
+7.  FAIL   src/server/routes/periods.ts:47 — throws ForbiddenError, should be NotFound
+8.  N/A    no export code in this diff
+```
+
+List failures first. If nothing fails, say so plainly rather than padding the list.

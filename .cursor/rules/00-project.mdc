@@ -1,0 +1,71 @@
+---
+description: "Core corridor for the teknisi-expense system. Stack, scale, and non-negotiable rules."
+alwaysApply: true
+---
+
+# teknisi-expense
+
+Internal web app for PT KSA (wood coating distributor, Indonesia). HR enters field
+technician travel expenses from paper forms, a branch head approves a closed month,
+and the system exports a print-ready Excel file matching the existing paper layout.
+
+## Scale, and it governs every technical choice
+
+Under 10 users. 3 concurrent at peak. 800 trip rows per month. ~10.000 rows per year.
+One developer, part time.
+
+**At this size the boring solution always wins.** Do not propose or add: message
+queues, Redis, caching layers, Docker, microservices, background job runners,
+websockets, event sourcing, soft deletes, or a permissions matrix. If you think one
+is needed, say why and wait for an answer rather than adding it.
+
+## Stack, fixed. Do not substitute.
+
+- Next.js App Router, TypeScript strict, Tailwind
+- Hono at `src/app/api/[[...route]]/route.ts` via `hono/vercel`
+- `@hono/zod-openapi` for validation and OpenAPI, Swagger UI at `/api/docs`
+- Prisma 7 (connection lives in `prisma.config.ts`, NOT in `schema.prisma`)
+- PostgreSQL on Neon, Singapore region
+- ExcelJS, exact version pinned
+- Session in an httpOnly cookie. Never a bearer token, never localStorage.
+
+Do not add a dependency that is not already in `package.json` without asking first.
+
+## Folder boundaries, enforced
+
+```
+src/app/          Next.js routes and pages. React lives here.
+src/app/api/[[...route]]/route.ts   The ONLY file under api/. Mounts Hono.
+src/server/       The backend. Nothing here may import React or anything from src/components.
+  routes/         Hono route definitions and their Zod schemas
+  services/       Business logic: fuel calc, period state machine, export
+  db/             Prisma client singleton
+  auth/           Session, password hashing
+src/components/   React. Nothing here may import Prisma or anything from src/server/db.
+src/lib/          Shared, isomorphic only: formatting, constants, types
+prisma/           schema.prisma and migrations
+```
+
+**These two import rules are the boundary.** They keep the backend separable if it
+ever needs to move out, and they stop database code leaking into components.
+
+## Non-negotiable rules
+
+1. **Every currency value is computed on the server and stored.** Never trust
+   `fuelCost`, `distanceKm`, or any rate from the request body. Ignore those fields
+   if present.
+2. **Money is `integer` rupiah.** Never float, never numeric, no decimals.
+3. **A trip stores the fuel rate that applied on its own date.** Changing the rate
+   later must never alter an existing row.
+4. **Scope goes in the WHERE clause**, never in an `if` after the fetch. Out of scope
+   returns 404, never 403.
+5. **Trips are writable only when their period is `draft` or `rejected`.** Otherwise
+   409 `PERIOD_LOCKED`.
+6. **UI text is Bahasa Indonesia.** Code, comments, and identifiers are English.
+7. **Light theme only.** No dark mode, no dark surfaces, sidebar included.
+
+## When unsure
+
+The full specification lives in the project documents (PRD, data model, user flows,
+acceptance criteria, decision record). If a request conflicts with anything above,
+say so before writing code rather than quietly doing it.

@@ -1,0 +1,91 @@
+---
+description: "ExcelJS export rules: workbook structure, print setup, and the paper layout it must reproduce."
+globs: ["src/server/services/export/**", "**/*excel*.ts", "**/*export*.ts"]
+alwaysApply: false
+---
+
+# Excel export rules
+
+The output is not "an Excel file". It is a reproduction of a specific paper form that
+someone prints and signs. Layout fidelity is the requirement.
+
+## Library
+
+ExcelJS, exact version pinned in `package.json`. Do not float it, do not swap to
+SheetJS (its community edition has limited styling support), and do not add
+`xlsx-js-style`.
+
+Generation happens **synchronously inside the request handler** and streams back. No
+background job, no queue, no file storage. At 40 sheets of 25 rows this is well under
+a second.
+
+## Workbook structure
+
+One file per generation:
+
+- **Sheet 1, `REKAP`** — one row per technician: trip count, BBM total, Toll dan Parkir
+  total, Makan total, grand total, and a year to date column. Branch subtotal rows at
+  the bottom.
+- **Sheets 2..N** — one per technician, named after the technician.
+
+## Technician sheet layout, exact
+
+Title block, then these columns in this order:
+
+`TANGGAL`, `TUJUAN`, `KOTA`, `KM AWAL`, `KM AKHIR`, `JARAK`, `BBM`,
+`TOLL DAN PARKIR`, `MAKAN`, `KETERANGAN`
+
+Then a `Sub Total` row, a `Grand Total` row, and the `Pemeriksa` and `Staf HRD GA`
+signature block.
+
+**`TOLL DAN PARKIR` is `tollAmount + parkingAmount` summed at render time.** The
+database stores them as two separate columns and that does not change. Summing for
+display is fine; merging them in storage is not.
+
+## Print setup, per sheet, required
+
+Every technician sheet sets all of these. Missing any one is a defect, not a polish item:
+
+```ts
+worksheet.pageSetup = {
+  orientation: 'landscape',
+  paperSize: 9,                    // A4
+  fitToPage: true,
+  fitToWidth: 1,
+  fitToHeight: 0,                  // 1 page wide, unlimited tall
+  margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
+  printArea: 'A1:J40',             // set explicitly, never left open
+}
+worksheet.pageSetup.printTitlesRow = '1:2'   // header row repeats on every page
+worksheet.headerFooter = { oddFooter: '&LDicetak &D &T&RHalaman &P dari &N' }
+```
+
+**Set `printArea` explicitly.** Left open, empty columns to the right spill onto a
+second page, and the whole point of the layout is lost.
+
+## Number formatting
+
+Currency cells use an Indonesian thousand separator with no decimals:
+`'#,##0'` with the workbook locale, rendering as `1.110.500`.
+
+Values written to cells are the stored integers. Never recompute a total in the export
+layer. If the sheet total does not match the application total, the bug is upstream and
+must be fixed there.
+
+## Scope
+
+`GET /api/exports/monthly` must enforce branch scope in the query like every other
+route. A branch head may only pass their own `branchId`. Omitting `branchId` returns
+all branches for `hr` and `admin` only, never for a branch head.
+
+This endpoint is the easiest one to forget and the worst to get wrong: it hands over an
+entire branch in a single file.
+
+## File name
+
+`Biaya-Operasional-Teknisi-{YYYY}-{MM}-{BRANCHCODE}.xlsx`
+
+## Verification when changing anything here
+
+Print a 22 trip technician sheet to PDF. It must be exactly one page. Print a 60 trip
+sheet: every page after the first must repeat the column header row.

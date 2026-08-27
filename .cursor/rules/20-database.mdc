@@ -1,0 +1,93 @@
+---
+description: "Prisma schema and migration rules for teknisi-expense."
+globs: ["prisma/**", "src/server/db/**"]
+alwaysApply: false
+---
+
+# Database rules
+
+## Types
+
+- **All currency columns are `Int`, holding whole rupiah.** Never `Float`, never
+  `Decimal`. Rupiah has no cents, and `Decimal` comes back from the driver as a string,
+  which turns `a + b` into string concatenation that produces a plausible wrong number
+  without throwing.
+- `kmPerLiter` is `Decimal(5,2)`. It is a ratio, not money.
+- Odometer and distance are `Int`.
+- Primary keys are `uuid`. Timestamps are `timestamptz`.
+
+## Snapshot columns are intentional
+
+`trips` stores `fuelPricePerLiter`, `fuelKmPerLiter`, `distanceKm`, and `fuelCost`
+even though three look derivable. `expensePeriods` stores `branchId` even though it is
+reachable through the technician.
+
+**This is a point in time snapshot and must not be normalised away.** Anything a human
+signed must never move when an input changes later.
+
+## Constraints that must exist
+
+```prisma
+@@unique([technicianId, periodYear, periodMonth])   // on ExpensePeriod
+```
+Plus, in raw SQL migrations:
+```sql
+CHECK (odo_end > odo_start)
+CHECK (toll_amount >= 0 AND parking_amount >= 0 AND meal_amount >= 0)
+CHECK ((role = 'branch_head' AND branch_id IS NOT NULL)
+    OR (role <> 'branch_head' AND branch_id IS NULL))
+```
+`distance_km` and `total_amount` are `GENERATED ALWAYS AS ... STORED`.
+
+Do not move any of these into application code. A database constraint is the only
+guarantee that survives a race condition or a bug.
+
+## Append only tables
+
+`fuel_rates` and `period_events` are append only. Never generate an update or delete
+path for either. A wrong fuel rate is corrected by inserting a new row with a later
+`effectiveFrom`.
+
+`fuel_rates` has **no `effectiveTo` column**. The rate for a date is the row with the
+greatest `effectiveFrom` at or before it. Do not add an end date.
+
+## Indexes: three, and no more without a measurement
+
+```
+trips(period_id)
+trips(trip_date)
+expense_periods(branch_id, period_year, period_month)
+```
+The unique constraint provides the technician index. Add a fourth only after
+measuring a slow query, never on suspicion. An index costs write speed and disk.
+
+Do not add `technician_id` to `trips`. The join through `expense_periods` is free at
+this scale, and a duplicated owner column on a money table can disagree with itself.
+
+## Migrations
+
+Always two steps. Never one.
+
+```bash
+npx prisma migrate dev --create-only --name <name>   # writes SQL, does not apply
+# read prisma/migrations/<ts>_<name>/migration.sql
+npx prisma migrate dev                                # then apply
+```
+
+Reading the generated SQL is a standing requirement, not a suggestion.
+
+**Before any migration against production, rehearse it on a Neon branch.** Branch,
+migrate, run the app against the branch, then either delete the branch or apply to
+production. This applies to every migration after the first.
+
+Any migration that drops a column or changes a type on `trips`, `expense_periods`, or
+`fuel_rates` requires the branch rehearsal. Postgres discards data without asking.
+
+## Connection
+
+`prisma.config.ts` holds the direct connection (`DATABASE_URL_UNPOOLED`) for the CLI.
+The runtime reads `DATABASE_URL`, which is the **pooled** endpoint with `-pooler` in the
+hostname. Do not put connection details in `schema.prisma`; that is Prisma 6 syntax.
+
+The Prisma client is a singleton in `src/server/db`. Never instantiate `new
+PrismaClient()` inside a route handler.

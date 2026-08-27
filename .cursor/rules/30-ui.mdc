@@ -1,0 +1,82 @@
+---
+description: "UI rules: Indonesian copy, light theme, entry speed mechanics, states."
+globs: ["src/app/**/*.tsx", "src/components/**/*.tsx", "src/app/**/*.css"]
+alwaysApply: false
+---
+
+# UI rules
+
+## Language
+
+All user facing text is **Bahasa Indonesia**. Code, identifiers, comments, and commit
+messages are English. Never mix the two in one string.
+
+The exact copy is specified in the user flow document. Use it verbatim rather than
+writing new wording. If a string is needed that is not specified, write it and flag it
+rather than inventing silently.
+
+## Theme
+
+**Light only.** No dark mode, no `prefers-color-scheme` blocks, no theme toggle, and
+no dark surfaces anywhere including the sidebar. The sidebar sits on the same light
+surface as the content, separated by a 1 px border.
+
+The only dark element is the primary button.
+
+## Entry speed is a requirement, not polish
+
+The trip form must allow a trained user to record one trip in under 15 seconds using
+the keyboard alone. Five mechanics make that possible. **Do not remove or "simplify"
+any of them:**
+
+1. Teknisi and Tanggal stay populated after a save
+2. Km Awal is pre-filled from the technician's last Km Akhir
+3. Kota is pre-filled from the destination's default city, and stays editable
+4. Keterangan offers the technician's recent notes
+5. `Ctrl + Enter` saves and returns focus to Km Akhir
+
+## Two behaviours that decide whether HR keeps using this
+
+- **A failed save never clears the form.** Show the error, offer retry, leave every
+  entered value in place.
+- **Session expiry never eats work in progress.** Show a modal over the form, keep the
+  form behind it, restore after sign in.
+
+Neither is optional.
+
+## States
+
+Every list has four distinct empty states with different text and different actions:
+first use, after filter, load failure, no data for the selected period. Never render
+the same component for all four.
+
+Every input needs: default, focus, filled, disabled, read only, error with a visible
+message, warning, loading.
+
+Blocking versus warning matters and they must look different:
+- **Block** only when the data is impossible (Km Akhir below Km Awal). Disable save.
+- **Warn** when the data is merely suspicious (odometer gap). Save still works.
+
+## Status must survive greyscale
+
+The four period badges (Draf, Diajukan, Disetujui, Ditolak) and flagged trip rows must
+remain distinguishable when the screen is converted to greyscale. Use outline, fill,
+or weight differences in addition to colour, never colour alone.
+
+Flagged rows use a heavy left edge, not a background tint, so the mark survives
+printing.
+
+## Formatting
+
+- Currency: Indonesian thousand separators, no decimals. `Rp 1.110.500`.
+- Dates: `DD/MM/YYYY`.
+- All numeric columns are right aligned with `tabular-nums`.
+- Wide tables scroll inside their own `overflow-x: auto` container. The page body
+  never scrolls horizontally.
+
+## Not in version one
+
+Do not build, and do not add unprompted: notification bells, charts or dashboards
+beyond the four stat tiles, mobile layouts, offline support, service workers, receipt
+upload, bulk edit or bulk delete, PDF export, or a browser print view. Excel is the
+only print artifact.

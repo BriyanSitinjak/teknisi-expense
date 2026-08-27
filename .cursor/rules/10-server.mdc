@@ -1,0 +1,103 @@
+---
+description: "API and server rules: money handling, authorization scope, transactions, error codes."
+globs: ["src/server/**/*.ts", "src/app/api/**/*.ts"]
+alwaysApply: false
+---
+
+# Server rules
+
+## Money is the server's job, always
+
+Never accept these from a request body. Ignore them if present:
+`fuelCost`, `distanceKm`, `totalAmount`, `fuelPricePerLiter`, `fuelKmPerLiter`, `periodId`.
+
+Fuel cost is computed at write time and stored:
+
+```
+distance   = odoEnd - odoStart
+fuelCost   = round(distance * rate.pricePerLiter / rate.kmPerLiter)   // half up, whole rupiah
+```
+
+`rate` is the row from `fuel_rates` with the greatest `effectiveFrom` at or before
+`tripDate`. If no such row exists, return 422 `RATE_NOT_FOUND`. Do not fall back to a
+default rate, do not use the newest rate, do not use a constant.
+
+Store `fuelPricePerLiter`, `fuelKmPerLiter`, `distanceKm`, and `fuelCost` on the trip
+row. They are a point in time snapshot, not derived values. This is deliberate and is
+not to be "cleaned up".
+
+## Authorization: scope in the query
+
+Every route taking an `:id` must filter by the caller's scope inside the query.
+
+```ts
+// WRONG. Someone else's record is already loaded before the check.
+const period = await prisma.expensePeriod.findUnique({ where: { id } })
+if (period.branchId !== user.branchId) throw new ForbiddenError()
+
+// RIGHT.
+const period = await prisma.expensePeriod.findFirst({
+  where: { id, ...(user.role === 'branch_head' ? { branchId: user.branchId } : {}) },
+})
+if (!period) throw new NotFoundError()
+```
+
+Return **404, not 403**, when out of scope. A 403 confirms the record exists.
+
+Applies to: `/periods/:id`, all four period actions, `/trips/:id`, and
+`/exports/monthly`. The export is the one most often missed and the worst to miss.
+
+Role checks run on the server for every mutating route. Hiding a button in React is
+user experience, not a control.
+
+## Transactions
+
+Any handler performing more than one write uses `prisma.$transaction`. In particular
+`POST /api/trips` creates or finds a period **and** inserts a trip. Without a
+transaction a mid-request failure leaves an orphan period.
+
+## Period lock
+
+Before any trip create, update, or delete, load the parent period and check its status.
+`submitted` or `approved` returns 409 `PERIOD_LOCKED`. Do this inside the transaction,
+not before it.
+
+## Validation and errors
+
+Every route defines a Zod schema through `@hono/zod-openapi`. The schema that
+validates is the same object that documents, so never write a separate OpenAPI
+definition.
+
+Error shape, always:
+
+```json
+{ "error": { "code": "...", "message": "...", "fields": { } } }
+```
+
+| Code | HTTP |
+|---|---|
+| `UNAUTHENTICATED` | 401 |
+| `FORBIDDEN` | 403 |
+| `NOT_FOUND` | 404 |
+| `VALIDATION_ERROR` | 422 |
+| `PERIOD_LOCKED` | 409 |
+| `CONFLICT` | 409 |
+| `RATE_NOT_FOUND` | 422 |
+| `RATE_LIMITED` | 429 |
+
+## Auth
+
+- bcrypt cost 12 or argon2id. Never SHA or MD5.
+- Session cookie: `httpOnly`, `secure`, `sameSite=lax`, sliding 8 hour expiry.
+- Sign in failures return the identical message for wrong password, unknown email, and
+  deactivated account. Always compute the password hash even when the user is not
+  found, so the response time does not reveal which emails exist.
+- No registration route exists.
+
+## Forbidden
+
+- `prisma.$queryRawUnsafe` — never. Use `$queryRaw` with a tagged template if raw SQL
+  is genuinely needed.
+- Any endpoint that edits or deletes a `fuel_rates` row.
+- Any endpoint that edits or deletes a `period_events` row.
+- Reading a session token from `localStorage` or `sessionStorage`.

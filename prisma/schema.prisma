@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  hr
+  branch_head
+  admin
+
+  @@map("user_role")
+}
+
+enum PeriodStatus {
+  draft
+  submitted
+  approved
+  rejected
+
+  @@map("period_status")
+}
+
+enum PeriodEventType {
+  submitted
+  approved
+  rejected
+  reopened
+
+  @@map("period_event_type")
+}
+
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  users        User[]
+  technicians  Technician[]
+  periods      ExpensePeriod[]
+
+  @@map("branches")
+}
+
+model City {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  destinations Destination[]
+  trips        Trip[]
+
+  @@map("cities")
+}
+
+model Destination {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  defaultCityId String?  @map("default_city_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  defaultCity City?  @relation(fields: [defaultCityId], references: [id])
+  trips       Trip[]
+
+  @@map("destinations")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole
+  branchId     String?  @map("branch_id") @db.Uuid
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  branch        Branch?       @relation(fields: [branchId], references: [id])
+  periodEvents  PeriodEvent[]
+
+  @@map("users")
+}
+
+model Technician {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  branchId  String   @map("branch_id") @db.Uuid
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  branch  Branch          @relation(fields: [branchId], references: [id])
+  periods ExpensePeriod[]
+
+  @@map("technicians")
+}
+
+model FuelRate {
+  id             String   @id @default(uuid()) @db.Uuid
+  effectiveFrom  DateTime @unique @map("effective_from") @db.Date
+  pricePerLiter  Int      @map("price_per_liter")
+  kmPerLiter     Decimal  @map("km_per_liter") @db.Decimal(5, 2)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("fuel_rates")
+}
+
+model ExpensePeriod {
+  id           String       @id @default(uuid()) @db.Uuid
+  technicianId String       @map("technician_id") @db.Uuid
+  branchId     String       @map("branch_id") @db.Uuid
+  periodYear   Int          @map("period_year")
+  periodMonth  Int          @map("period_month")
+  status       PeriodStatus @default(draft)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  technician Technician    @relation(fields: [technicianId], references: [id])
+  branch     Branch        @relation(fields: [branchId], references: [id])
+  trips      Trip[]
+  events     PeriodEvent[]
+
+  @@unique([technicianId, periodYear, periodMonth])
+  @@index([branchId, periodYear, periodMonth])
+  @@map("expense_periods")
+}
+
+model Trip {
+  id                String   @id @default(uuid()) @db.Uuid
+  periodId          String   @map("period_id") @db.Uuid
+  tripDate          DateTime @map("trip_date") @db.Date
+  cityId            String   @map("city_id") @db.Uuid
+  destinationId     String   @map("destination_id") @db.Uuid
+  odoStart          Int      @map("odo_start")
+  odoEnd            Int      @map("odo_end")
+  distanceKm        Int      @default(dbgenerated("(odo_end - odo_start)")) @map("distance_km")
+  fuelPricePerLiter Int      @map("fuel_price_per_liter")
+  fuelKmPerLiter    Decimal  @map("fuel_km_per_liter") @db.Decimal(5, 2)
+  fuelCost          Int      @map("fuel_cost")
+  tollAmount        Int      @default(0) @map("toll_amount")
+  parkingAmount     Int      @default(0) @map("parking_amount")
+  mealAmount        Int      @default(0) @map("meal_amount")
+  totalAmount       Int      @default(dbgenerated("(fuel_cost + toll_amount + parking_amount + meal_amount)")) @map("total_amount")
+  notes             String?
+  odoGapFlagged     Boolean  @default(false) @map("odo_gap_flagged")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  period      ExpensePeriod @relation(fields: [periodId], references: [id])
+  city        City          @relation(fields: [cityId], references: [id])
+  destination Destination   @relation(fields: [destinationId], references: [id])
+
+  @@index([periodId])
+  @@index([tripDate])
+  @@map("trips")
+}
+
+model PeriodEvent {
+  id        String          @id @default(uuid()) @db.Uuid
+  periodId  String          @map("period_id") @db.Uuid
+  eventType PeriodEventType @map("event_type")
+  actorId   String          @map("actor_id") @db.Uuid
+  reason    String?
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  period ExpensePeriod @relation(fields: [periodId], references: [id])
+  actor  User          @relation(fields: [actorId], references: [id])
+
+  @@map("period_events")
+}
