@@ -10,7 +10,7 @@ const userSchema = z.object({
   id: z.string(),
   email: z.string(),
   name: z.string(),
-  role: z.enum(["hr", "branch_head", "admin"]),
+  role: z.enum(["hr", "branch_head"]),
   branchId: z.string().nullable(),
   branch: z
     .object({
@@ -63,7 +63,7 @@ function publicUser(user: {
   id: string;
   email: string;
   name: string;
-  role: "hr" | "branch_head" | "admin";
+  role: "hr" | "branch_head";
   branchId: string | null;
   branch: { id: string; code: string; name: string } | null;
 }) {

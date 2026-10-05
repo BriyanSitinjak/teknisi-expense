@@ -2,22 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { LoadingScreen } from "@/components/app-ui";
 import { api } from "@/lib/api";
+import { homePath, type SessionMe } from "@/lib/constants";
 
 export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    api<{ role: string }>("/api/me")
-      .then((me) => {
-        router.replace(me.role === "branch_head" ? "/persetujuan" : "/beranda");
-      })
+    api<SessionMe>("/api/me")
+      .then((me) => router.replace(homePath(me.role)))
       .catch(() => router.replace("/login"));
   }, [router]);
 
-  return (
-    <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-      Memuat…
-    </div>
-  );
+  return <LoadingScreen />;
 }

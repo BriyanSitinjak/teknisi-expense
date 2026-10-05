@@ -45,13 +45,13 @@ const createRouteDef = createRoute({
   method: "post",
   path: "/technicians",
   tags: ["Technicians"],
-  middleware: [requireAuth, requireRole("hr", "admin")],
+  middleware: [requireAuth, requireRole("hr")],
   request: {
     body: jsonBody(
       z.object({
         code: z.string().trim().min(1).max(30),
         name: z.string().trim().min(1).max(100),
-        branchId: z.uuid(),
+        branchId: z.uuid().optional(),
       }),
     ),
   },
@@ -65,7 +65,7 @@ const patchRoute = createRoute({
   method: "patch",
   path: "/technicians/{id}",
   tags: ["Technicians"],
-  middleware: [requireAuth, requireRole("hr", "admin")],
+  middleware: [requireAuth, requireRole("hr")],
   request: {
     params: uuidParam,
     body: jsonBody(
@@ -84,6 +84,22 @@ const patchRoute = createRoute({
 });
 
 const include = { branch: { select: { id: true, code: true, name: true } } } as const;
+
+async function resolveBranchId(branchId?: string) {
+  const branch = branchId
+    ? await prisma.branch.findUnique({ where: { id: branchId } })
+    : ((await prisma.branch.findUnique({ where: { code: "JKT" } })) ??
+      (await prisma.branch.findFirst({ orderBy: { code: "asc" } })));
+  if (!branch) throw new NotFoundError("Cabang tidak ditemukan");
+  return branch.id;
+}
+
+function throwTechnicianCodeConflict(error: unknown): never {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    throw new ConflictError("Kode teknisi sudah digunakan");
+  }
+  throw error;
+}
 
 export const technicianRoutes = new OpenAPIHono<AppEnv>()
   .openapi(listRoute, async (c) => {
@@ -116,16 +132,15 @@ export const technicianRoutes = new OpenAPIHono<AppEnv>()
   })
   .openapi(createRouteDef, async (c) => {
     const body = c.req.valid("json");
-    const branch = await prisma.branch.findUnique({ where: { id: body.branchId } });
-    if (!branch) throw new NotFoundError("Cabang tidak ditemukan");
+    const branchId = await resolveBranchId(body.branchId);
     try {
-      const technician = await prisma.technician.create({ data: body, include });
+      const technician = await prisma.technician.create({
+        data: { code: body.code, name: body.name, branchId },
+        include,
+      });
       return c.json(technician, 201);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        throw new ConflictError("Kode teknisi sudah digunakan");
-      }
-      throw error;
+      throwTechnicianCodeConflict(error);
     }
   })
   .openapi(patchRoute, async (c) => {
@@ -133,17 +148,11 @@ export const technicianRoutes = new OpenAPIHono<AppEnv>()
     const body = c.req.valid("json");
     const existing = await prisma.technician.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError();
-    if (body.branchId) {
-      const branch = await prisma.branch.findUnique({ where: { id: body.branchId } });
-      if (!branch) throw new NotFoundError("Cabang tidak ditemukan");
-    }
+    if (body.branchId) await resolveBranchId(body.branchId);
     try {
       const technician = await prisma.technician.update({ where: { id }, data: body, include });
       return c.json(technician, 200);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        throw new ConflictError("Kode teknisi sudah digunakan");
-      }
-      throw error;
+      throwTechnicianCodeConflict(error);
     }
   });

@@ -39,15 +39,9 @@ async function main() {
 
   const jakarta = branches.find((b) => b.code === "JKT")!;
 
-  await prisma.user.upsert({
+  await prisma.user.updateMany({
     where: { email: "admin@ksa.local" },
-    update: {},
-    create: {
-      email: "admin@ksa.local",
-      name: "Administrator",
-      role: "admin",
-      passwordHash,
-    },
+    data: { isActive: false },
   });
 
   await prisma.user.upsert({
@@ -113,7 +107,6 @@ async function main() {
   }
 
   console.log("Seed complete.");
-  console.log("  admin@ksa.local / " + SEED_PASSWORD);
   console.log("  hr@ksa.local / " + SEED_PASSWORD);
   console.log("  kepala.jkt@ksa.local / " + SEED_PASSWORD);
 }

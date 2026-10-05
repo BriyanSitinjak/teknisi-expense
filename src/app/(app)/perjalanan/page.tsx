@@ -1,10 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormError, NativeSelect, PageHeader, PageMain } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api, isApiError } from "@/lib/api";
+import { api, errorMessage, fetchList } from "@/lib/api";
 import { formatRp } from "@/lib/format";
 
 type Option = { id: string; name: string; code?: string; defaultCityId?: string | null };
@@ -40,14 +41,14 @@ export default function PerjalananPage() {
 
   useEffect(() => {
     Promise.all([
-      api<{ data: Option[] }>("/api/technicians?active=true&limit=100"),
-      api<{ data: Option[] }>("/api/cities?limit=100"),
-      api<{ data: Array<Option & { defaultCityId: string | null }> }>("/api/destinations?limit=100"),
+      fetchList<Option>("/api/technicians?active=true&limit=100"),
+      fetchList<Option>("/api/cities?limit=100"),
+      fetchList<Option & { defaultCityId: string | null }>("/api/destinations?limit=100"),
     ]).then(([tech, city, dest]) => {
-      setTechnicians(tech.data);
-      setCities(city.data);
-      setDestinations(dest.data);
-      if (tech.data[0]) setTechnicianId(tech.data[0].id);
+      setTechnicians(tech);
+      setCities(city);
+      setDestinations(dest);
+      if (tech[0]) setTechnicianId(tech[0].id);
     });
   }, []);
 
@@ -98,7 +99,7 @@ export default function PerjalananPage() {
       setPending(false);
       requestAnimationFrame(() => odoEndRef.current?.focus());
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Gagal menyimpan");
+      setError(errorMessage(err, "Gagal menyimpan"));
       setPending(false);
     }
   }
@@ -111,11 +112,11 @@ export default function PerjalananPage() {
   const odoInvalid = odoStart !== "" && odoEnd !== "" && Number(odoEnd) <= Number(odoStart);
 
   return (
-    <main className="p-6">
-      <h1 className="text-xl font-semibold">Input perjalanan</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Ctrl+Enter menyimpan dan kembali ke Km Akhir. Teknisi dan tanggal tetap terisi.
-      </p>
+    <PageMain>
+      <PageHeader
+        title="Input perjalanan"
+        description="Ctrl+Enter menyimpan dan kembali ke Km Akhir. Teknisi dan tanggal tetap terisi."
+      />
 
       <form
         onSubmit={onSubmit}
@@ -130,9 +131,8 @@ export default function PerjalananPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-1.5">
             <Label htmlFor="technician">Teknisi</Label>
-            <select
+            <NativeSelect
               id="technician"
-              className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
               value={technicianId}
               onChange={(e) => setTechnicianId(e.target.value)}
               required
@@ -142,7 +142,7 @@ export default function PerjalananPage() {
                   {t.code} — {t.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="tripDate">Tanggal</Label>
@@ -150,9 +150,8 @@ export default function PerjalananPage() {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="destination">Tujuan</Label>
-            <select
+            <NativeSelect
               id="destination"
-              className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
               value={destinationId}
               onChange={(e) => onDestinationChange(e.target.value)}
               required
@@ -163,13 +162,12 @@ export default function PerjalananPage() {
                   {d.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="city">Kota</Label>
-            <select
+            <NativeSelect
               id="city"
-              className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
               value={cityId}
               onChange={(e) => setCityId(e.target.value)}
               required
@@ -180,7 +178,7 @@ export default function PerjalananPage() {
                   {c.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="odoStart">Km Awal</Label>
@@ -237,11 +235,7 @@ export default function PerjalananPage() {
           </div>
         </div>
 
-        {error ? (
-          <p className="mt-4 text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
+        <FormError message={error} />
         {warning ? (
           <p className="mt-4 text-sm font-medium" role="status">
             {warning}
@@ -261,6 +255,6 @@ export default function PerjalananPage() {
           <span className="text-xs text-muted-foreground">Ctrl+Enter</span>
         </div>
       </form>
-    </main>
+    </PageMain>
   );
 }

@@ -2,12 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { FormError } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api, isApiError } from "@/lib/api";
-
-type Me = { role: "hr" | "branch_head" | "admin" };
+import { api, errorMessage } from "@/lib/api";
+import { homePath, type SessionMe } from "@/lib/constants";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,13 +21,13 @@ export default function LoginPage() {
     setError(null);
     setPending(true);
     try {
-      const me = await api<Me>("/api/auth/login", {
+      const me = await api<SessionMe>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      router.replace(me.role === "branch_head" ? "/persetujuan" : "/beranda");
+      router.replace(homePath(me.role));
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Email atau kata sandi salah");
+      setError(errorMessage(err, "Email atau kata sandi salah"));
       setPending(false);
     }
   }
@@ -67,11 +67,7 @@ export default function LoginPage() {
               required
             />
           </div>
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
+          <FormError message={error} className="" />
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Memeriksa…" : "Masuk"}
           </Button>

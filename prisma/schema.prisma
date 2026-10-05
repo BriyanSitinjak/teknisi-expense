@@ -10,7 +10,6 @@ datasource db {
 enum UserRole {
   hr
   branch_head
-  admin
 
   @@map("user_role")
 }

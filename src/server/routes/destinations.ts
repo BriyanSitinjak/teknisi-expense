@@ -36,7 +36,7 @@ const createRouteDef = createRoute({
   method: "post",
   path: "/destinations",
   tags: ["Destinations"],
-  middleware: [requireAuth, requireRole("hr", "admin")],
+  middleware: [requireAuth, requireRole("hr")],
   request: {
     body: jsonBody(
       z.object({

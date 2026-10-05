@@ -76,7 +76,7 @@ must be fixed there.
 
 `GET /api/exports/monthly` must enforce branch scope in the query like every other
 route. A branch head may only pass their own `branchId`. Omitting `branchId` returns
-all branches for `hr` and `admin` only, never for a branch head.
+all branches for `hr` only, never for a branch head.
 
 This endpoint is the easiest one to forget and the worst to get wrong: it hands over an
 entire branch in a single file.

@@ -3,27 +3,25 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { LoadingScreen } from "@/components/app-ui";
 import { api } from "@/lib/api";
+import type { AppRole, SessionMe } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-type Me = {
-  name: string;
-  role: "hr" | "branch_head" | "admin";
-};
-
-const NAV: Array<{ href: string; label: string; roles: Me["role"][] }> = [
-  { href: "/beranda", label: "Beranda", roles: ["hr", "admin"] },
-  { href: "/perjalanan", label: "Input perjalanan", roles: ["hr", "admin"] },
-  { href: "/persetujuan", label: "Menunggu persetujuan", roles: ["branch_head", "admin"] },
+const NAV: Array<{ href: string; label: string; roles: AppRole[] }> = [
+  { href: "/beranda", label: "Beranda", roles: ["hr"] },
+  { href: "/perjalanan", label: "Input perjalanan", roles: ["hr"] },
+  { href: "/master", label: "Data master", roles: ["hr"] },
+  { href: "/persetujuan", label: "Menunggu persetujuan", roles: ["hr", "branch_head"] },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [me, setMe] = useState<Me | null>(null);
+  const [me, setMe] = useState<SessionMe | null>(null);
 
   useEffect(() => {
-    api<Me>("/api/me")
+    api<SessionMe>("/api/me")
       .then(setMe)
       .catch(() => router.replace("/login"));
   }, [router]);
@@ -34,11 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (!me) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        Memuat…
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   const links = NAV.filter((item) => item.roles.includes(me.role));
@@ -57,7 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href={item.href}
               className={cn(
                 "rounded-md px-3 py-2 text-sm",
-                pathname === item.href
+                pathname === item.href || pathname.startsWith(`${item.href}/`)
                   ? "bg-foreground font-medium text-background"
                   : "text-foreground hover:bg-muted",
               )}

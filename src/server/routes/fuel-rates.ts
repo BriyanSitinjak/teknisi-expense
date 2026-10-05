@@ -57,7 +57,7 @@ const createRouteDef = createRoute({
   method: "post",
   path: "/fuel-rates",
   tags: ["Fuel rates"],
-  middleware: [requireAuth, requireRole("admin")],
+  middleware: [requireAuth, requireRole("hr")],
   request: {
     body: jsonBody(
       z.object({

@@ -81,7 +81,7 @@ const hintRoute = createRoute({
   method: "get",
   path: "/trips/odometer-hint",
   tags: ["Trips"],
-  middleware: [requireAuth, requireRole("hr", "admin")],
+  middleware: [requireAuth, requireRole("hr")],
   request: {
     query: z.object({
       technicianId: z.uuid(),
@@ -104,7 +104,7 @@ const createRouteDef = createRoute({
   method: "post",
   path: "/trips",
   tags: ["Trips"],
-  middleware: [requireAuth, requireRole("hr", "admin")],
+  middleware: [requireAuth, requireRole("hr")],
   request: { body: jsonBody(tripBody) },
   responses: {
     201: jsonResponse(tripSchema, "Perjalanan tersimpan"),
@@ -116,7 +116,7 @@ const patchRoute = createRoute({
   method: "patch",
   path: "/trips/{id}",
   tags: ["Trips"],
-  middleware: [requireAuth, requireRole("hr", "admin")],
+  middleware: [requireAuth, requireRole("hr")],
   request: {
     params: uuidParam,
     body: jsonBody(tripBody.partial().extend({ technicianId: z.uuid().optional(), tripDate: isoDate.optional() })),
@@ -131,7 +131,7 @@ const deleteRoute = createRoute({
   method: "delete",
   path: "/trips/{id}",
   tags: ["Trips"],
-  middleware: [requireAuth, requireRole("hr", "admin")],
+  middleware: [requireAuth, requireRole("hr")],
   request: { params: uuidParam },
   responses: {
     200: jsonResponse(z.object({ ok: z.boolean() }), "Perjalanan dihapus"),

@@ -38,3 +38,12 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export function isApiError(error: unknown): error is ApiError {
   return Boolean(error && typeof error === "object" && "status" in error && "message" in error);
 }
+
+export function errorMessage(error: unknown, fallback: string) {
+  return isApiError(error) ? error.message : fallback;
+}
+
+export async function fetchList<T>(path: string): Promise<T[]> {
+  const res = await api<{ data: T[] }>(path);
+  return res.data;
+}

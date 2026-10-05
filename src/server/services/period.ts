@@ -1,4 +1,4 @@
-import { WRITABLE_PERIOD_STATUSES } from "@/lib/constants";
+import { isWritablePeriod } from "@/lib/constants";
 import { prisma } from "@/server/db/prisma";
 import type { SessionUser } from "@/server/auth/session";
 import { branchScope } from "@/server/auth/middleware";
@@ -16,14 +16,14 @@ const TRANSITIONS: Record<
   PeriodAction,
   { from: string[]; to: "submitted" | "approved" | "rejected" | "draft"; roles: SessionUser["role"][] }
 > = {
-  submit: { from: ["draft", "rejected"], to: "submitted", roles: ["hr", "admin"] },
-  approve: { from: ["submitted"], to: "approved", roles: ["branch_head", "admin"] },
-  reject: { from: ["submitted"], to: "rejected", roles: ["branch_head", "admin"] },
-  reopen: { from: ["approved"], to: "draft", roles: ["branch_head", "admin"] },
+  submit: { from: ["draft", "rejected"], to: "submitted", roles: ["hr"] },
+  approve: { from: ["submitted"], to: "approved", roles: ["branch_head", "hr"] },
+  reject: { from: ["submitted"], to: "rejected", roles: ["branch_head", "hr"] },
+  reopen: { from: ["approved"], to: "draft", roles: ["branch_head", "hr"] },
 };
 
 export function assertPeriodWritable(status: string) {
-  if (!WRITABLE_PERIOD_STATUSES.includes(status as (typeof WRITABLE_PERIOD_STATUSES)[number])) {
+  if (!isWritablePeriod(status)) {
     throw new PeriodLockedError();
   }
 }

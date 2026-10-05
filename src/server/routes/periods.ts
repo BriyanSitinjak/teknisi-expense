@@ -60,7 +60,7 @@ const getRoute = createRoute({
   },
 });
 
-function actionRoute(action: "submit" | "approve" | "reject" | "reopen", roles: Array<"hr" | "admin" | "branch_head">) {
+function actionRoute(action: "submit" | "approve" | "reject" | "reopen", roles: Array<"hr" | "branch_head">) {
   return createRoute({
     method: "post",
     path: `/periods/{id}/${action}`,
@@ -77,10 +77,10 @@ function actionRoute(action: "submit" | "approve" | "reject" | "reopen", roles: 
   });
 }
 
-const submitRoute = actionRoute("submit", ["hr", "admin"]);
-const approveRoute = actionRoute("approve", ["branch_head", "admin"]);
-const rejectRoute = actionRoute("reject", ["branch_head", "admin"]);
-const reopenRoute = actionRoute("reopen", ["branch_head", "admin"]);
+const submitRoute = actionRoute("submit", ["hr"]);
+const approveRoute = actionRoute("approve", ["branch_head", "hr"]);
+const rejectRoute = actionRoute("reject", ["branch_head", "hr"]);
+const reopenRoute = actionRoute("reopen", ["branch_head", "hr"]);
 
 async function totalsFor(periodId: string) {
   const agg = await prisma.trip.aggregate({

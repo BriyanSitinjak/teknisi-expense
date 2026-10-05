@@ -16,11 +16,10 @@ Scale: <10 users, 3 concurrent, 800 trips/month, ~10k rows/year, 1 developer.
 
 | Role | Can |
 |---|---|
-| HR | Master data, enter/edit/delete trips (all branches), submit a month, export |
+| HR | Master data, enter/edit/delete trips (all branches), submit a month, approve/reject/reopen, fuel rates, export |
 | Kepala Cabang | View, approve, reject, reopen, export. **Own branch only.** |
-| Admin | Everything, plus users, branches, fuel rates |
 
-Technicians are records, not users. No self registration. Landing page: HR/Admin → Beranda, Kepala Cabang → Menunggu Persetujuan.
+Technicians are records, not users. No self registration. Landing page: HR → Beranda, Kepala Cabang → Menunggu Persetujuan.
 
 ---
 
@@ -77,10 +76,10 @@ Current rate: Rp 10.000/litre, 30 km/litre → **Rp 333,33/km**. Motorcycle, Per
 | Transition | Who | From |
 |---|---|---|
 | create period | system, on first trip of the month | — |
-| submit | HR, Admin | draft, rejected. ≥1 trip required. |
-| approve | Kepala Cabang (own branch), Admin | submitted |
-| reject | Kepala Cabang (own branch), Admin | submitted. Reason required. |
-| reopen | Kepala Cabang (own branch), Admin | approved. Reason required. → draft |
+| submit | HR | draft, rejected. ≥1 trip required. |
+| approve | Kepala Cabang (own branch), HR | submitted |
+| reject | Kepala Cabang (own branch), HR | submitted. Reason required. |
+| reopen | Kepala Cabang (own branch), HR | approved. Reason required. → draft |
 
 **Lock rule:** trips writable only when period is `draft` or `rejected`. Otherwise **409 `PERIOD_LOCKED`**. Checked inside the transaction.
 
@@ -92,15 +91,15 @@ Hono at `src/app/api/[[...route]]/route.ts`. Swagger at `/api/docs`.
 
 ```
 POST   /auth/login  { email, password }        POST /auth/logout      GET /me
-GET    /cities                 POST /cities                    hr, admin
-GET    /destinations           POST /destinations               hr, admin
-GET    /technicians            POST /technicians  PATCH /:id    hr, admin
-GET    /fuel-rates             GET /fuel-rates/effective?date=  POST (admin only)
+GET    /cities                 POST /cities                    hr
+GET    /destinations           POST /destinations               hr
+GET    /technicians            POST /technicians  PATCH /:id    hr
+GET    /fuel-rates             GET /fuel-rates/effective?date=  POST (hr)
 GET    /periods                GET /periods/:id
-POST   /periods/:id/submit                                      hr, admin
-POST   /periods/:id/approve | /reject | /reopen  { reason }     branch_head, admin
-GET    /trips?periodId=        POST /trips  PATCH /:id  DELETE /:id   hr, admin
-GET    /trips/odometer-hint?technicianId=&date=                 hr, admin
+POST   /periods/:id/submit                                      hr
+POST   /periods/:id/approve | /reject | /reopen  { reason }     branch_head, hr
+GET    /trips?periodId=        POST /trips  PATCH /:id  DELETE /:id   hr
+GET    /trips/odometer-hint?technicianId=&date=                 hr
 GET    /exports/monthly?year=&month=&branchId=   → xlsx
 ```
 
