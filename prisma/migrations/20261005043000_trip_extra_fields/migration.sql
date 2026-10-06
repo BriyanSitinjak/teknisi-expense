@@ -1,0 +1,3 @@
+ALTER TABLE "trips"
+  ADD COLUMN IF NOT EXISTS "extra_title" TEXT,
+  ADD COLUMN IF NOT EXISTS "extra_value" TEXT;

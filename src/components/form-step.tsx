@@ -1,3 +1,28 @@
+export function FormSection({
+  step,
+  title,
+  hint,
+  children,
+}: {
+  step: number;
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="surface p-5">
+      <div className="mb-4">
+        <p className="text-sm font-semibold tracking-tight">
+          <span className="mr-2 text-muted-foreground">{step}.</span>
+          {title}
+        </p>
+        {hint ? <p className="mt-1 text-sm text-muted-foreground">{hint}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export function FormStep({
   step,
   title,
@@ -24,16 +49,19 @@ export function FormStep({
 
 export function MasterForm({
   title,
+  description,
   onSubmit,
   children,
 }: {
   title: string;
+  description?: string;
   onSubmit: React.FormEventHandler<HTMLFormElement>;
   children: React.ReactNode;
 }) {
   return (
-    <form onSubmit={onSubmit} className="max-w-2xl rounded-xl border border-border bg-white p-5">
-      <h2 className="font-medium">{title}</h2>
+    <form onSubmit={onSubmit} className="surface p-5">
+      <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+      {description ? <p className="mt-1 text-xs text-muted-foreground">{description}</p> : null}
       {children}
     </form>
   );

@@ -33,10 +33,10 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-16">
+    <main className="flex flex-1 animate-in fade-in duration-300 items-center justify-center px-4 py-16">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm rounded-xl border border-border bg-white p-6 shadow-sm"
+        className="surface w-full max-w-sm p-6"
       >
         <p className="text-sm text-muted-foreground">PT KSA · Wood Finishing</p>
         <h1 className="mt-1 text-xl font-semibold tracking-tight">Masuk</h1>

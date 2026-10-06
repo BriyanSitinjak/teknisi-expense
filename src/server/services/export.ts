@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { prisma } from "@/server/db/prisma";
 import type { SessionUser } from "@/server/auth/session";
 import { NotFoundError } from "@/server/errors";
+import { formatTripKeterangan } from "@/lib/format";
 import { formatIsoDate } from "@/server/openapi";
 
 function sheetName(code: string, name: string, used: Set<string>) {
@@ -230,7 +231,7 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
         trip.fuelCost,
         trip.tollAmount + trip.parkingAmount,
         trip.mealAmount,
-        trip.notes ?? "",
+        formatTripKeterangan(trip.notes, trip.extraTitle, trip.extraValue),
       ]);
       row.getCell(1).numFmt = "DD/MM/YYYY";
       row.getCell(7).numFmt = CURRENCY;

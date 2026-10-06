@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { PERIOD_STATUS_LABEL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
@@ -10,7 +11,7 @@ export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
 }
 
 export function PageMain({ children }: { children: React.ReactNode }) {
-  return <main className="p-6">{children}</main>;
+  return <main className="animate-in fade-in duration-300 p-6 lg:p-8">{children}</main>;
 }
 
 export function PageHeader({
@@ -24,7 +25,7 @@ export function PageHeader({
 }) {
   return (
     <>
-      <h1 className="text-xl font-semibold">{title}</h1>
+      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
       {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
       {children}
     </>
@@ -46,10 +47,58 @@ export function FormError({
   );
 }
 
-export function NativeSelect({ className, ...props }: React.ComponentProps<"select">) {
+export function StatusBadge({ status }: { status: string }) {
+  const label = PERIOD_STATUS_LABEL[status] ?? status;
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        status === "draft" && "border-dashed text-muted-foreground",
+        status === "submitted" && "border-foreground",
+        status === "approved" && "border-foreground bg-foreground text-background",
+        status === "rejected" && "border-2 border-foreground",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+export function StatTile({
+  label,
+  value,
+  hint,
+  icon,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="surface p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+        {icon ? (
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            {icon}
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
+      {hint ? <p className="mt-2 text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
+export function NativeSelect({ className, ref, ...props }: React.ComponentProps<"select">) {
   return (
     <select
-      className={cn("h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm", className)}
+      ref={ref}
+      className={cn(
+        "h-9 w-full rounded-full border border-border bg-white px-3 text-sm transition-colors duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        className,
+      )}
       {...props}
     />
   );
@@ -59,7 +108,9 @@ export type TableColumn = string | { label: string; align?: "left" | "right" };
 
 export function DataTable({
   title,
+  description,
   search,
+  extra,
   columns,
   loading,
   empty,
@@ -67,7 +118,9 @@ export function DataTable({
   children,
 }: {
   title?: string;
+  description?: string;
   search?: { value: string; onChange: (value: string) => void; placeholder: string };
+  extra?: React.ReactNode;
   columns: TableColumn[];
   loading?: boolean;
   empty: string;
@@ -75,22 +128,30 @@ export function DataTable({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-white">
-      {title || search ? (
-        <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
-          {title ? <p className="text-sm font-medium">{title}</p> : null}
-          {search ? (
-            <Input
-              className="max-w-56"
-              placeholder={search.placeholder}
-              value={search.value}
-              onChange={(event) => search.onChange(event.target.value)}
-            />
+    <div className="surface overflow-x-auto">
+      {title || search || description || extra ? (
+        <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 pb-3">
+          <div>
+            {title ? <p className="text-base font-semibold tracking-tight">{title}</p> : null}
+            {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+          </div>
+          {search || extra ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {search ? (
+                <Input
+                  className="max-w-56 rounded-full"
+                  placeholder={search.placeholder}
+                  value={search.value}
+                  onChange={(event) => search.onChange(event.target.value)}
+                />
+              ) : null}
+              {extra}
+            </div>
           ) : null}
         </div>
       ) : null}
       <table className="w-full text-sm">
-        <thead className="border-b bg-zinc-50 text-left">
+        <thead className="text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
           <tr>
             {columns.map((column) => {
               const label = typeof column === "string" ? column : column.label;
@@ -98,7 +159,7 @@ export function DataTable({
               return (
                 <th
                   key={label}
-                  className={align === "right" ? "px-3 py-2 text-right font-medium" : "px-3 py-2 font-medium"}
+                  className={align === "right" ? "px-5 py-3 text-right" : "px-5 py-3"}
                 >
                   {label}
                 </th>
@@ -109,7 +170,7 @@ export function DataTable({
         <tbody>
           {loading || isEmpty ? (
             <tr>
-              <td colSpan={columns.length} className="px-3 py-8 text-center text-muted-foreground">
+              <td colSpan={columns.length} className="px-5 py-10 text-center text-muted-foreground">
                 {loading ? "Memuat…" : empty}
               </td>
             </tr>

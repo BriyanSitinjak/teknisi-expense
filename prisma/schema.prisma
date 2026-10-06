@@ -150,6 +150,8 @@ model Trip {
   mealAmount        Int      @default(0) @map("meal_amount")
   totalAmount       Int      @default(dbgenerated("(fuel_cost + toll_amount + parking_amount + meal_amount)")) @map("total_amount")
   notes             String?
+  extraTitle        String?  @map("extra_title")
+  extraValue        String?  @map("extra_value")
   odoGapFlagged     Boolean  @default(false) @map("odo_gap_flagged")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz

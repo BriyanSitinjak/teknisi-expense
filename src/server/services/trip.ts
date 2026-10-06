@@ -18,6 +18,8 @@ export type TripInput = {
   parkingAmount: number;
   mealAmount: number;
   notes?: string | null;
+  extraTitle?: string | null;
+  extraValue?: string | null;
 };
 
 function yearMonth(date: Date) {
@@ -141,6 +143,8 @@ export async function createTrip(input: TripInput) {
           parkingAmount: input.parkingAmount,
           mealAmount: input.mealAmount,
           notes: input.notes?.trim() || null,
+          extraTitle: input.extraTitle?.trim() || null,
+          extraValue: input.extraValue?.trim() || null,
           odoGapFlagged,
         },
         include: tripInclude,
@@ -199,6 +203,8 @@ export async function updateTrip(id: string, input: TripInput) {
         parkingAmount: input.parkingAmount,
         mealAmount: input.mealAmount,
         notes: input.notes?.trim() || null,
+        extraTitle: input.extraTitle?.trim() || null,
+        extraValue: input.extraValue?.trim() || null,
         odoGapFlagged,
       },
       include: tripInclude,
@@ -272,6 +278,8 @@ export function serializeTrip(trip: {
   mealAmount: number;
   totalAmount: number;
   notes: string | null;
+  extraTitle: string | null;
+  extraValue: string | null;
   odoGapFlagged: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -304,6 +312,8 @@ export function serializeTrip(trip: {
     mealAmount: trip.mealAmount,
     totalAmount: trip.totalAmount,
     notes: trip.notes,
+    extraTitle: trip.extraTitle,
+    extraValue: trip.extraValue,
     odoGapFlagged: trip.odoGapFlagged,
     createdAt: trip.createdAt.toISOString(),
     updatedAt: trip.updatedAt.toISOString(),

@@ -55,14 +55,14 @@ export default function PersetujuanPage() {
         >
           {periods.map((period) => (
             <tr key={period.id} className="border-t">
-              <td className="px-3 py-2">
+              <td className="px-5 py-3.5">
                 {technicianLabel(period.technician)}
               </td>
-              <td className="px-3 py-2">
+              <td className="px-5 py-3.5">
                 {String(period.month).padStart(2, "0")}/{period.year} · {PERIOD_STATUS_LABEL[period.status]}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums">{formatRp(period.totalAmount)}</td>
-              <td className="px-3 py-2">
+              <td className="px-5 py-3.5 text-right tabular-nums">{formatRp(period.totalAmount)}</td>
+              <td className="px-5 py-3.5">
                 <input
                   className="h-8 w-full rounded-lg border border-input px-2 text-sm"
                   value={reasonById[period.id] ?? ""}
@@ -71,7 +71,7 @@ export default function PersetujuanPage() {
                   }
                 />
               </td>
-              <td className="px-3 py-2">
+              <td className="px-5 py-3.5">
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => act(period.id, "approve")}>
                     Setujui

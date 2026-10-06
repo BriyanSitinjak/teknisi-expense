@@ -30,6 +30,8 @@ const tripSchema = z.object({
   mealAmount: z.number(),
   totalAmount: z.number(),
   notes: z.string().nullable(),
+  extraTitle: z.string().nullable(),
+  extraValue: z.string().nullable(),
   odoGapFlagged: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -51,6 +53,8 @@ const tripBody = z.object({
   parkingAmount: z.number().int().nonnegative().default(0),
   mealAmount: z.number().int().nonnegative().default(0),
   notes: z.string().max(500).nullable().optional(),
+  extraTitle: z.string().trim().max(100).nullable().optional(),
+  extraValue: z.string().trim().max(200).nullable().optional(),
 });
 
 const listRoute = createRoute({
@@ -192,6 +196,8 @@ export const tripRoutes = new OpenAPIHono<AppEnv>()
       parkingAmount: body.parkingAmount ?? existing.parkingAmount,
       mealAmount: body.mealAmount ?? existing.mealAmount,
       notes: body.notes === undefined ? existing.notes : body.notes,
+      extraTitle: body.extraTitle === undefined ? existing.extraTitle : body.extraTitle,
+      extraValue: body.extraValue === undefined ? existing.extraValue : body.extraValue,
     });
     return c.json(serializeTrip(trip), 200);
   })

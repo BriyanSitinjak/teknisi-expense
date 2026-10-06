@@ -38,13 +38,9 @@ async function main() {
   }
 
   const jakarta = branches.find((b) => b.code === "JKT")!;
+  const keepEmails = ["hr@ksa.local", "kepala.jkt@ksa.local"];
 
-  await prisma.user.updateMany({
-    where: { email: "admin@ksa.local" },
-    data: { isActive: false },
-  });
-
-  await prisma.user.upsert({
+  const hr = await prisma.user.upsert({
     where: { email: "hr@ksa.local" },
     update: {},
     create: {
@@ -66,6 +62,19 @@ async function main() {
       passwordHash,
     },
   });
+
+  const extras = await prisma.user.findMany({
+    where: { email: { notIn: keepEmails } },
+    select: { id: true },
+  });
+  if (extras.length > 0) {
+    const extraIds = extras.map((user) => user.id);
+    await prisma.periodEvent.updateMany({
+      where: { actorId: { in: extraIds } },
+      data: { actorId: hr.id },
+    });
+    await prisma.user.deleteMany({ where: { id: { in: extraIds } } });
+  }
 
   const existingRate = await prisma.fuelRate.findFirst({
     where: { effectiveFrom: new Date("2026-01-01T00:00:00.000Z") },
