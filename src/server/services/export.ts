@@ -36,7 +36,7 @@ function applyPrintSetup(sheet: ExcelJS.Worksheet, lastRow: number) {
 
 const CURRENCY = "#,##0";
 
-export async function exportMonthly(user: SessionUser, year: number, month: number, branchId?: string) {
+export async function exportWorkbook(user: SessionUser, branchId?: string) {
   let scopedBranchId = branchId;
 
   if (user.role === "branch_head") {
@@ -60,8 +60,6 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
 
   const periods = await prisma.expensePeriod.findMany({
     where: {
-      periodYear: year,
-      periodMonth: month,
       ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
     },
     include: {
@@ -72,32 +70,13 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
         orderBy: [{ tripDate: "asc" }, { createdAt: "asc" }],
       },
     },
-    orderBy: [{ branch: { code: "asc" } }, { technician: { name: "asc" } }],
+    orderBy: [
+      { periodYear: "desc" },
+      { periodMonth: "desc" },
+      { branch: { code: "asc" } },
+      { technician: { name: "asc" } },
+    ],
   });
-
-  const ytd = await prisma.trip.groupBy({
-    by: ["periodId"],
-    where: {
-      period: {
-        periodYear: year,
-        periodMonth: { lte: month },
-        ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
-      },
-    },
-    _sum: { totalAmount: true },
-  });
-
-  const ytdByTechnician = new Map<string, number>();
-  const periodById = await prisma.expensePeriod.findMany({
-    where: { id: { in: ytd.map((row) => row.periodId) } },
-    select: { id: true, technicianId: true },
-  });
-  const technicianOfPeriod = new Map(periodById.map((p) => [p.id, p.technicianId]));
-  for (const row of ytd) {
-    const technicianId = technicianOfPeriod.get(row.periodId);
-    if (!technicianId) continue;
-    ytdByTechnician.set(technicianId, (ytdByTechnician.get(technicianId) ?? 0) + (row._sum.totalAmount ?? 0));
-  }
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "teknisi-expense";
@@ -105,6 +84,7 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
 
   const rekap = workbook.addWorksheet("REKAP");
   rekap.columns = [
+    { header: "PERIODE", key: "period", width: 12 },
     { header: "KODE", key: "code", width: 12 },
     { header: "TEKNISI", key: "name", width: 28 },
     { header: "CABANG", key: "branch", width: 16 },
@@ -113,10 +93,9 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
     { header: "TOLL DAN PARKIR", key: "tollPark", width: 18 },
     { header: "MAKAN", key: "meal", width: 14 },
     { header: "TOTAL", key: "total", width: 14 },
-    { header: "YTD", key: "ytd", width: 14 },
   ];
 
-  rekap.spliceRows(1, 0, [`REKAP BIAYA OPERASIONAL TEKNISI ${String(month).padStart(2, "0")}/${year}`]);
+  rekap.spliceRows(1, 0, ["REKAP BIAYA OPERASIONAL TEKNISI"]);
   rekap.mergeCells("A1:I1");
   rekap.getRow(1).font = { bold: true, size: 14 };
 
@@ -136,6 +115,7 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
     branchTotals.set(period.branch.code, current);
 
     const row = rekap.addRow({
+      period: `${String(period.periodMonth).padStart(2, "0")}/${period.periodYear}`,
       code: period.technician.code,
       name: period.technician.name,
       branch: period.branch.code,
@@ -144,9 +124,8 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
       tollPark,
       meal,
       total,
-      ytd: ytdByTechnician.get(period.technician.id) ?? total,
     });
-    for (const col of [5, 6, 7, 8, 9]) {
+    for (const col of [6, 7, 8, 9]) {
       row.getCell(col).numFmt = CURRENCY;
     }
   }
@@ -154,6 +133,7 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
   rekap.addRow([]);
   for (const [code, totals] of branchTotals) {
     const row = rekap.addRow({
+      period: "",
       code: "",
       name: `SUBTOTAL ${code}`,
       branch: code,
@@ -164,7 +144,7 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
       total: totals.total,
     });
     row.font = { bold: true };
-    for (const col of [5, 6, 7, 8]) {
+    for (const col of [6, 7, 8, 9]) {
       row.getCell(col).numFmt = CURRENCY;
     }
   }
@@ -184,13 +164,14 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
   const usedNames = new Set<string>(["rekap"]);
 
   for (const period of periods) {
-    const sheet = workbook.addWorksheet(sheetName(period.technician.code, period.technician.name, usedNames));
+    const periodLabel = `${String(period.periodMonth).padStart(2, "0")}-${period.periodYear}`;
+    const sheet = workbook.addWorksheet(sheetName(period.technician.code, periodLabel, usedNames));
     sheet.mergeCells("A1:J1");
     sheet.getCell("A1").value = "BIAYA OPERASIONAL TEKNISI";
     sheet.getCell("A1").font = { bold: true, size: 14 };
     sheet.mergeCells("A2:J2");
     sheet.getCell("A2").value =
-      `${period.technician.code} — ${period.technician.name}  |  ${period.branch.name}  |  ${String(month).padStart(2, "0")}/${year}`;
+      `${period.technician.code} — ${period.technician.name}  |  ${period.branch.name}  |  ${String(period.periodMonth).padStart(2, "0")}/${period.periodYear}`;
 
     const header = sheet.addRow([
       "TANGGAL",
@@ -270,7 +251,7 @@ export async function exportMonthly(user: SessionUser, year: number, month: numb
   const branchCode = scopedBranchId
     ? (await prisma.branch.findUnique({ where: { id: scopedBranchId } }))?.code ?? "ALL"
     : "ALL";
-  const filename = `Biaya-Operasional-Teknisi-${year}-${String(month).padStart(2, "0")}-${branchCode}.xlsx`;
+  const filename = `Biaya-Operasional-Teknisi-${branchCode}.xlsx`;
 
   return { buffer: Buffer.from(buffer), filename };
 }

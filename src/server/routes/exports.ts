@@ -1,18 +1,16 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppEnv } from "@/server/app-env";
 import { requireAuth } from "@/server/auth/middleware";
-import { exportMonthly } from "@/server/services/export";
+import { exportWorkbook } from "@/server/services/export";
 import { errorResponses } from "@/server/openapi";
 
 const exportRoute = createRoute({
   method: "get",
-  path: "/exports/monthly",
+  path: "/exports",
   tags: ["Exports"],
   middleware: [requireAuth],
   request: {
     query: z.object({
-      year: z.coerce.number().int().min(2000),
-      month: z.coerce.number().int().min(1).max(12),
       branchId: z.uuid().optional(),
     }),
   },
@@ -31,8 +29,8 @@ const exportRoute = createRoute({
 
 export const exportRoutes = new OpenAPIHono<AppEnv>().openapi(exportRoute, async (c) => {
   const user = c.get("user");
-  const { year, month, branchId } = c.req.valid("query");
-  const { buffer, filename } = await exportMonthly(user, year, month, branchId);
+  const { branchId } = c.req.valid("query");
+  const { buffer, filename } = await exportWorkbook(user, branchId);
   return new Response(buffer, {
     status: 200,
     headers: {

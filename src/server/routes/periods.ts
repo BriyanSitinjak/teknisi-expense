@@ -28,6 +28,7 @@ const listRoute = createRoute({
   middleware: [requireAuth],
   request: {
     query: paginationQuery.extend({
+      limit: z.coerce.number().int().min(1).max(500).optional().default(50),
       year: z.coerce.number().int().optional(),
       month: z.coerce.number().int().min(1).max(12).optional(),
       branchId: z.uuid().optional(),

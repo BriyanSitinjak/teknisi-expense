@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CalendarDays, ClipboardCheck, Download, Plus, Route, Users, Wallet } from "lucide-react";
+import { ClipboardCheck, Download, Plus, Route, Users, Wallet } from "lucide-react";
 import {
   DataTable,
   FormError,
-  NativeSelect,
   PageMain,
   StatTile,
   StatusBadge,
@@ -23,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { api, errorMessage, fetchList } from "@/lib/api";
 import { isWritablePeriod, PERIOD_STATUS_LABEL, type SessionMe } from "@/lib/constants";
-import { formatMonthId, formatRp, monthOptions, technicianLabel } from "@/lib/format";
+import { formatMonthId, formatRp, technicianLabel } from "@/lib/format";
 import type { PeriodRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -40,9 +39,6 @@ type ConfirmKind = "submit" | "withdraw" | "reopen";
 type ConfirmAction = { id: string; kind: ConfirmKind; label: string };
 
 export default function BerandaPage() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const [month, setMonth] = useState(now.getMonth() + 1);
   const [me, setMe] = useState<SessionMe | null>(null);
   const [periods, setPeriods] = useState<PeriodRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,18 +48,17 @@ export default function BerandaPage() {
   const [reason, setReason] = useState("");
   const [acting, setActing] = useState(false);
 
-  function load(selectedMonth: number) {
+  function load() {
     setLoading(true);
-    fetchList<PeriodRow>(`/api/periods?year=${year}&month=${selectedMonth}&limit=50`)
+    fetchList<PeriodRow>("/api/periods?limit=500")
       .then(setPeriods)
-      .catch(() => setError("Gagal memuat periode bulan ini"))
+      .catch(() => setError("Gagal memuat daftar periode"))
       .finally(() => setLoading(false));
   }
 
   useEffect(() => {
     api<SessionMe>("/api/me").then(setMe).catch(() => undefined);
-    load(month);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    load();
   }, []);
 
   function ask(action: ConfirmAction) {
@@ -86,7 +81,7 @@ export default function BerandaPage() {
       });
       setConfirm(null);
       setReason("");
-      load(month);
+      load();
     } catch (err) {
       const fallback =
         confirm.kind === "submit"
@@ -114,33 +109,13 @@ export default function BerandaPage() {
             {me ? `Halo, ${me.name}` : "Beranda"}
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            Ringkasan biaya perjalanan teknisi {formatMonthId(year, month)}.
+            Ringkasan seluruh biaya perjalanan teknisi.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="relative">
-            <CalendarDays className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <NativeSelect
-              className="w-auto pl-9"
-              aria-label="Bulan"
-              value={month}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                setMonth(next);
-                setError(null);
-                load(next);
-              }}
-            >
-              {monthOptions().map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </NativeSelect>
-          </label>
           <a
             className={cn(buttonVariants({ variant: "outline" }), "h-9 rounded-full bg-white px-4")}
-            href={`/api/exports/monthly?year=${year}&month=${month}`}
+            href="/api/exports"
           >
             <Download className="size-4" />
             Unduh Excel
@@ -205,6 +180,7 @@ export default function BerandaPage() {
           description="Pengajuan tetap tersimpan. Menunggu bisa dibatalkan. Disetujui bisa dibuka lagi untuk trip baru, lalu diajukan ulang."
           columns={[
             "Teknisi",
+            "Periode",
             "Cabang",
             "Status",
             { label: "Trip", align: "right" },
@@ -215,13 +191,14 @@ export default function BerandaPage() {
           isEmpty={!loading && visible.length === 0}
           empty={
             periods.length === 0
-              ? "Belum ada perjalanan bulan ini. Mulai dari menu Input perjalanan."
+              ? "Belum ada perjalanan. Mulai dari menu Input perjalanan."
               : "Tidak ada periode dengan status ini."
           }
         >
           {visible.map((period) => (
             <tr key={period.id} className="border-t border-border/70">
               <td className="px-5 py-3.5">{technicianLabel(period.technician)}</td>
+              <td className="px-5 py-3.5">{formatMonthId(period.year, period.month)}</td>
               <td className="px-5 py-3.5">{period.branch?.code}</td>
               <td className="px-5 py-3.5">
                 <StatusBadge status={period.status} />
