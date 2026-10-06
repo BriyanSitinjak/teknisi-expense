@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Building2, MapPin, Plus, Users } from "lucide-react";
-import { DataTable, FormError, NativeSelect, PageMain, StatTile, StatusBadge } from "@/components/app-ui";
+import { DataTable, fieldClass, FormError, NativeSelect, PageHeader, PageMain, StatTile, StatusBadge } from "@/components/app-ui";
 import { FormStep, MasterForm } from "@/components/form-step";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,8 +45,6 @@ type TripHistory = {
   periodYear: number;
   periodMonth: number;
 };
-
-const fieldClass = "h-9 rounded-full bg-white px-3";
 
 function emptyListCopy(kind: "teknisi" | "tujuan", query: string, state: ListState) {
   if (state === "error") return `Gagal memuat daftar ${kind}. Coba muat ulang.`;
@@ -107,14 +105,10 @@ export default function MasterPage() {
 
   return (
     <PageMain>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Data master</h1>
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            Kelola teknisi, tujuan, dan kota. Data yang tersimpan muncul di dropdown Input
-            perjalanan.
-          </p>
-        </div>
+      <PageHeader
+        title="Data master"
+        description="Kelola teknisi, tujuan, dan kota. Data yang tersimpan muncul di dropdown Input perjalanan."
+        actions={
         <Button
           type="button"
           className="h-9 rounded-full px-4"
@@ -125,7 +119,8 @@ export default function MasterPage() {
           <Plus className="size-4" />
           {tab === "technicians" ? "Tambah teknisi" : "Tambah tujuan"}
         </Button>
-      </div>
+        }
+      />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatTile

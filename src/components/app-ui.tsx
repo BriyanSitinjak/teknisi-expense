@@ -14,21 +14,27 @@ export function PageMain({ children }: { children: React.ReactNode }) {
   return <main className="animate-in fade-in duration-300 p-6 lg:p-8">{children}</main>;
 }
 
+export const fieldClass = "h-9 rounded-full bg-white px-3";
+
 export function PageHeader({
   title,
   description,
-  children,
+  actions,
 }: {
   title: string;
   description?: string;
-  children?: React.ReactNode;
+  actions?: React.ReactNode;
 }) {
   return (
-    <>
-      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-      {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
-      {children}
-    </>
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        {description ? (
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      {actions}
+    </div>
   );
 }
 

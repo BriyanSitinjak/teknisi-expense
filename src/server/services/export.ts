@@ -36,6 +36,26 @@ function applyPrintSetup(sheet: ExcelJS.Worksheet, lastRow: number) {
 
 const CURRENCY = "#,##0";
 
+function periodStamp(month: number, year: number, separator: "/" | "-") {
+  return `${String(month).padStart(2, "0")}${separator}${year}`;
+}
+
+function formatMoney(row: ExcelJS.Row, columns: number[]) {
+  for (const col of columns) row.getCell(col).numFmt = CURRENCY;
+}
+
+function tripTotals(trips: Array<{ fuelCost: number; tollAmount: number; parkingAmount: number; mealAmount: number; totalAmount: number }>) {
+  return trips.reduce(
+    (sum, trip) => ({
+      fuel: sum.fuel + trip.fuelCost,
+      tollPark: sum.tollPark + trip.tollAmount + trip.parkingAmount,
+      meal: sum.meal + trip.mealAmount,
+      total: sum.total + trip.totalAmount,
+    }),
+    { fuel: 0, tollPark: 0, meal: 0, total: 0 },
+  );
+}
+
 export async function exportWorkbook(user: SessionUser, branchId?: string) {
   let scopedBranchId = branchId;
 
@@ -102,10 +122,7 @@ export async function exportWorkbook(user: SessionUser, branchId?: string) {
   const branchTotals = new Map<string, { trips: number; fuel: number; tollPark: number; meal: number; total: number }>();
 
   for (const period of periods) {
-    const fuel = period.trips.reduce((sum, trip) => sum + trip.fuelCost, 0);
-    const tollPark = period.trips.reduce((sum, trip) => sum + trip.tollAmount + trip.parkingAmount, 0);
-    const meal = period.trips.reduce((sum, trip) => sum + trip.mealAmount, 0);
-    const total = period.trips.reduce((sum, trip) => sum + trip.totalAmount, 0);
+    const { fuel, tollPark, meal, total } = tripTotals(period.trips);
     const current = branchTotals.get(period.branch.code) ?? { trips: 0, fuel: 0, tollPark: 0, meal: 0, total: 0 };
     current.trips += period.trips.length;
     current.fuel += fuel;
@@ -115,7 +132,7 @@ export async function exportWorkbook(user: SessionUser, branchId?: string) {
     branchTotals.set(period.branch.code, current);
 
     const row = rekap.addRow({
-      period: `${String(period.periodMonth).padStart(2, "0")}/${period.periodYear}`,
+      period: periodStamp(period.periodMonth, period.periodYear, "/"),
       code: period.technician.code,
       name: period.technician.name,
       branch: period.branch.code,
@@ -125,9 +142,7 @@ export async function exportWorkbook(user: SessionUser, branchId?: string) {
       meal,
       total,
     });
-    for (const col of [6, 7, 8, 9]) {
-      row.getCell(col).numFmt = CURRENCY;
-    }
+    formatMoney(row, [6, 7, 8, 9]);
   }
 
   rekap.addRow([]);
@@ -144,9 +159,7 @@ export async function exportWorkbook(user: SessionUser, branchId?: string) {
       total: totals.total,
     });
     row.font = { bold: true };
-    for (const col of [6, 7, 8, 9]) {
-      row.getCell(col).numFmt = CURRENCY;
-    }
+    formatMoney(row, [6, 7, 8, 9]);
   }
 
   rekap.pageSetup = {
@@ -164,14 +177,14 @@ export async function exportWorkbook(user: SessionUser, branchId?: string) {
   const usedNames = new Set<string>(["rekap"]);
 
   for (const period of periods) {
-    const periodLabel = `${String(period.periodMonth).padStart(2, "0")}-${period.periodYear}`;
+    const periodLabel = periodStamp(period.periodMonth, period.periodYear, "-");
     const sheet = workbook.addWorksheet(sheetName(period.technician.code, periodLabel, usedNames));
     sheet.mergeCells("A1:J1");
     sheet.getCell("A1").value = "BIAYA OPERASIONAL TEKNISI";
     sheet.getCell("A1").font = { bold: true, size: 14 };
     sheet.mergeCells("A2:J2");
     sheet.getCell("A2").value =
-      `${period.technician.code} — ${period.technician.name}  |  ${period.branch.name}  |  ${String(period.periodMonth).padStart(2, "0")}/${period.periodYear}`;
+      `${period.technician.code} — ${period.technician.name}  |  ${period.branch.name}  |  ${periodStamp(period.periodMonth, period.periodYear, "/")}`;
 
     const header = sheet.addRow([
       "TANGGAL",
@@ -215,28 +228,21 @@ export async function exportWorkbook(user: SessionUser, branchId?: string) {
         formatTripKeterangan(trip.notes, trip.extraTitle, trip.extraValue),
       ]);
       row.getCell(1).numFmt = "DD/MM/YYYY";
-      row.getCell(7).numFmt = CURRENCY;
-      row.getCell(8).numFmt = CURRENCY;
-      row.getCell(9).numFmt = CURRENCY;
+      formatMoney(row, [7, 8, 9]);
       [4, 5, 6, 7, 8, 9].forEach((col) => {
         row.getCell(col).alignment = { horizontal: "right" };
       });
     }
 
-    const subFuel = period.trips.reduce((sum, trip) => sum + trip.fuelCost, 0);
-    const subToll = period.trips.reduce((sum, trip) => sum + trip.tollAmount + trip.parkingAmount, 0);
-    const subMeal = period.trips.reduce((sum, trip) => sum + trip.mealAmount, 0);
-    const grand = period.trips.reduce((sum, trip) => sum + trip.totalAmount, 0);
+    const totals = tripTotals(period.trips);
 
-    const sub = sheet.addRow(["", "", "", "", "", "Sub Total", subFuel, subToll, subMeal, ""]);
+    const sub = sheet.addRow(["", "", "", "", "", "Sub Total", totals.fuel, totals.tollPark, totals.meal, ""]);
     sub.font = { bold: true };
-    sub.getCell(7).numFmt = CURRENCY;
-    sub.getCell(8).numFmt = CURRENCY;
-    sub.getCell(9).numFmt = CURRENCY;
+    formatMoney(sub, [7, 8, 9]);
 
-    const grandRow = sheet.addRow(["", "", "", "", "", "Grand Total", grand, "", "", ""]);
+    const grandRow = sheet.addRow(["", "", "", "", "", "Grand Total", totals.total, "", "", ""]);
     grandRow.font = { bold: true };
-    grandRow.getCell(7).numFmt = CURRENCY;
+    formatMoney(grandRow, [7]);
 
     sheet.addRow([]);
     sheet.addRow(["Pemeriksa", "", "", "", "", "", "Staf HRD GA"]);

@@ -2,13 +2,14 @@
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { CalendarDays, Check, Keyboard, MapPin, User } from "lucide-react";
-import { FormError, NativeSelect, PageMain } from "@/components/app-ui";
+import { fieldClass, FormError, NativeSelect, PageHeader, PageMain } from "@/components/app-ui";
 import { FormSection } from "@/components/form-step";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, errorMessage, fetchList } from "@/lib/api";
 import { formatExtraItem, formatIdInt, formatRp } from "@/lib/format";
+import { fuelCost } from "@/server/services/fuel";
 import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string; code?: string; defaultCityId?: string | null };
@@ -20,11 +21,6 @@ function todayIso() {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60000;
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
-}
-
-function estimatedFuelCost(distance: number, rate: Rate) {
-  const kmPerLiterScaled = Math.round(rate.kmPerLiter * 100);
-  return Math.round((distance * rate.pricePerLiter * 100) / kmPerLiterScaled);
 }
 
 function Field({
@@ -43,8 +39,6 @@ function Field({
     </div>
   );
 }
-
-const fieldClass = "h-9 rounded-full bg-white px-3";
 
 function digitsOnly(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -206,25 +200,23 @@ export default function PerjalananPage() {
   const toll = Number(tollAmount) || 0;
   const parking = Number(parkingAmount) || 0;
   const meal = Number(mealAmount) || 0;
-  const fuelEstimate = distance != null && rate ? estimatedFuelCost(distance, rate) : null;
+  const fuelEstimate = distance != null && rate ? fuelCost(distance, rate) : null;
   const totalEstimate = (fuelEstimate ?? 0) + toll + parking + meal;
   const canEstimate = distance != null;
   const extraLine = formatExtraItem(extraTitle, extraValue ? formatRp(Number(extraValue)) : "");
 
   return (
     <PageMain>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Input perjalanan</h1>
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            Ctrl+Enter menyimpan dan kembali ke Km Akhir. Teknisi dan tanggal tetap terisi.
-          </p>
-        </div>
-        <div className="surface flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
-          <Keyboard className="size-4 shrink-0" />
-          Ctrl+Enter menyimpan
-        </div>
-      </div>
+      <PageHeader
+        title="Input perjalanan"
+        description="Ctrl+Enter menyimpan dan kembali ke Km Akhir. Teknisi dan tanggal tetap terisi."
+        actions={
+          <div className="surface flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+            <Keyboard className="size-4 shrink-0" />
+            Ctrl+Enter menyimpan
+          </div>
+        }
+      />
 
       <form
         onSubmit={onSubmit}

@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { DataTable, FormError, PageHeader, PageMain } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { api, errorMessage, fetchList } from "@/lib/api";
-import { PERIOD_STATUS_LABEL } from "@/lib/constants";
-import { formatRp, technicianLabel } from "@/lib/format";
+import { formatMonthId, formatRp, technicianLabel } from "@/lib/format";
 import type { PeriodRow } from "@/lib/types";
 
 export default function PersetujuanPage() {
@@ -58,9 +57,7 @@ export default function PersetujuanPage() {
               <td className="px-5 py-3.5">
                 {technicianLabel(period.technician)}
               </td>
-              <td className="px-5 py-3.5">
-                {String(period.month).padStart(2, "0")}/{period.year} · {PERIOD_STATUS_LABEL[period.status]}
-              </td>
+              <td className="px-5 py-3.5">{formatMonthId(period.year, period.month)}</td>
               <td className="px-5 py-3.5 text-right tabular-nums">{formatRp(period.totalAmount)}</td>
               <td className="px-5 py-3.5">
                 <input

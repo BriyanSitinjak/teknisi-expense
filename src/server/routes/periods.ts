@@ -3,6 +3,7 @@ import { prisma } from "@/server/db/prisma";
 import type { AppEnv } from "@/server/app-env";
 import { branchScope, requireAuth, requireRole } from "@/server/auth/middleware";
 import { getPeriodForUser, serializePeriod, transitionPeriod } from "@/server/services/period";
+import type { SessionUser } from "@/server/auth/session";
 import { errorResponses, jsonBody, jsonResponse, paginationQuery, uuidParam } from "@/server/openapi";
 
 const periodSchema = z.object({
@@ -140,25 +141,23 @@ export const periodRoutes = new OpenAPIHono<AppEnv>()
   })
   .openapi(getRoute, async (c) => {
     const period = await getPeriodForUser(c.req.valid("param").id, c.get("user"));
-    return c.json(serializePeriod(period, await totalsFor(period.id)), 200);
+    return c.json(await withTotals(period), 200);
   })
-  .openapi(submitRoute, async (c) => {
-    const period = await transitionPeriod(c.req.valid("param").id, "submit", c.get("user"), c.req.valid("json")?.reason);
-    return c.json(serializePeriod(period, await totalsFor(period.id)), 200);
-  })
-  .openapi(approveRoute, async (c) => {
-    const period = await transitionPeriod(c.req.valid("param").id, "approve", c.get("user"), c.req.valid("json")?.reason);
-    return c.json(serializePeriod(period, await totalsFor(period.id)), 200);
-  })
-  .openapi(rejectRoute, async (c) => {
-    const period = await transitionPeriod(c.req.valid("param").id, "reject", c.get("user"), c.req.valid("json")?.reason);
-    return c.json(serializePeriod(period, await totalsFor(period.id)), 200);
-  })
-  .openapi(reopenRoute, async (c) => {
-    const period = await transitionPeriod(c.req.valid("param").id, "reopen", c.get("user"), c.req.valid("json")?.reason);
-    return c.json(serializePeriod(period, await totalsFor(period.id)), 200);
-  })
-  .openapi(withdrawRoute, async (c) => {
-    const period = await transitionPeriod(c.req.valid("param").id, "withdraw", c.get("user"));
-    return c.json(serializePeriod(period, await totalsFor(period.id)), 200);
-  });
+  .openapi(submitRoute, async (c) => c.json(await changedPeriod(c.req.valid("param").id, "submit", c.get("user"), c.req.valid("json")?.reason), 200))
+  .openapi(approveRoute, async (c) => c.json(await changedPeriod(c.req.valid("param").id, "approve", c.get("user"), c.req.valid("json")?.reason), 200))
+  .openapi(rejectRoute, async (c) => c.json(await changedPeriod(c.req.valid("param").id, "reject", c.get("user"), c.req.valid("json")?.reason), 200))
+  .openapi(reopenRoute, async (c) => c.json(await changedPeriod(c.req.valid("param").id, "reopen", c.get("user"), c.req.valid("json")?.reason), 200))
+  .openapi(withdrawRoute, async (c) => c.json(await changedPeriod(c.req.valid("param").id, "withdraw", c.get("user")), 200));
+
+async function withTotals(period: Awaited<ReturnType<typeof getPeriodForUser>>) {
+  return serializePeriod(period, await totalsFor(period.id));
+}
+
+async function changedPeriod(
+  id: string,
+  action: "submit" | "approve" | "reject" | "reopen" | "withdraw",
+  user: SessionUser,
+  reason?: string,
+) {
+  return withTotals(await transitionPeriod(id, action, user, reason));
+}

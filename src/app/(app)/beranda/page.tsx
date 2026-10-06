@@ -6,6 +6,7 @@ import { ClipboardCheck, Download, Plus, Route, Users, Wallet } from "lucide-rea
 import {
   DataTable,
   FormError,
+  PageHeader,
   PageMain,
   StatTile,
   StatusBadge,
@@ -103,15 +104,10 @@ export default function BerandaPage() {
 
   return (
     <PageMain>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {me ? `Halo, ${me.name}` : "Beranda"}
-          </h1>
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            Ringkasan seluruh biaya perjalanan teknisi.
-          </p>
-        </div>
+      <PageHeader
+        title={me ? `Halo, ${me.name}` : "Beranda"}
+        description="Ringkasan seluruh biaya perjalanan teknisi."
+        actions={
         <div className="flex flex-wrap items-center gap-2">
           <a
             className={cn(buttonVariants({ variant: "outline" }), "h-9 rounded-full bg-white px-4")}
@@ -125,7 +121,8 @@ export default function BerandaPage() {
             Input perjalanan
           </Link>
         </div>
-      </div>
+        }
+      />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Total biaya" value={formatRp(total)} icon={<Wallet className="size-4" />} />

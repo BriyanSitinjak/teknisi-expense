@@ -73,11 +73,6 @@ export function fuelCost(distance: number, rate: FuelRate): number {
   return Math.round(numerator / kmPerLiterScaled)
 }
 
-/** Convenience: cost per kilometre, for display only. Never stored. */
-export function costPerKm(rate: FuelRate): number {
-  return rate.pricePerLiter / rate.kmPerLiter
-}
-
 /**
  * Everything a trip needs to snapshot at write time.
  *

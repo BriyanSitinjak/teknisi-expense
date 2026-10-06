@@ -35,11 +35,7 @@ export function formatDateId(iso: string) {
 }
 
 export function formatKm(value: number) {
-  return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(value)} km`;
-}
-
-export function monthOptions() {
-  return MONTHS_ID.map((label, index) => ({ value: index + 1, label }));
+  return `${formatIdInt(value)} km`;
 }
 
 export function technicianLabel(technician?: { code?: string; name?: string } | null) {
