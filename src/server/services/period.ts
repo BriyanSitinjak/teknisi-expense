@@ -10,7 +10,7 @@ import {
   ValidationError,
 } from "@/server/errors";
 
-type PeriodAction = "submit" | "approve" | "reject" | "reopen";
+type PeriodAction = "submit" | "approve" | "reject" | "reopen" | "withdraw";
 
 const TRANSITIONS: Record<
   PeriodAction,
@@ -20,7 +20,23 @@ const TRANSITIONS: Record<
   approve: { from: ["submitted"], to: "approved", roles: ["branch_head", "hr"] },
   reject: { from: ["submitted"], to: "rejected", roles: ["branch_head", "hr"] },
   reopen: { from: ["approved"], to: "draft", roles: ["branch_head", "hr"] },
+  withdraw: { from: ["submitted"], to: "draft", roles: ["hr"] },
 };
+
+function eventType(action: PeriodAction) {
+  switch (action) {
+    case "submit":
+      return "submitted";
+    case "approve":
+      return "approved";
+    case "reject":
+      return "rejected";
+    case "reopen":
+      return "reopened";
+    case "withdraw":
+      return "withdrawn";
+  }
+}
 
 export function assertPeriodWritable(status: string) {
   if (!isWritablePeriod(status)) {
@@ -91,7 +107,7 @@ export async function transitionPeriod(
     await tx.periodEvent.create({
       data: {
         periodId: period.id,
-        eventType: action === "reopen" ? "reopened" : action === "submit" ? "submitted" : action === "approve" ? "approved" : "rejected",
+        eventType: eventType(action),
         actorId: user.id,
         reason: reason?.trim() || null,
       },
@@ -114,6 +130,7 @@ export function serializePeriod(
     technician?: { id: string; code: string; name: string };
     branch?: { id: string; code: string; name: string };
     _count?: { trips: number };
+    events?: Array<{ reason: string | null }>;
   },
   totals?: { tripCount: number; totalAmount: number },
 ) {
@@ -130,5 +147,6 @@ export function serializePeriod(
     branch: period.branch,
     tripCount: totals?.tripCount ?? period._count?.trips ?? 0,
     totalAmount: totals?.totalAmount ?? 0,
+    lastReason: period.events?.[0]?.reason ?? null,
   };
 }

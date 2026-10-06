@@ -11,6 +11,15 @@ import {
   Map,
 } from "lucide-react";
 import { LoadingScreen } from "@/components/app-ui";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import type { AppRole, SessionMe } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -31,6 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState<SessionMe | null>(null);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   useEffect(() => {
     api<SessionMe>("/api/me")
@@ -93,13 +103,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{me.name}</p>
-              <a href="/api/docs" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
-                Dokumentasi API
-              </a>
             </div>
             <button
               type="button"
-              onClick={logout}
+              onClick={() => setConfirmLogout(true)}
               className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-white hover:text-foreground"
               aria-label="Keluar"
             >
@@ -107,6 +114,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </div>
+        <Dialog open={confirmLogout} onOpenChange={setConfirmLogout}>
+          <DialogContent showCloseButton={false}>
+            <DialogHeader>
+              <DialogTitle>Keluar dari akun?</DialogTitle>
+              <DialogDescription>
+                Sesi Anda akan berakhir. Anda perlu masuk kembali untuk melanjutkan.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setConfirmLogout(false)}>
+                Batal
+              </Button>
+              <Button type="button" onClick={logout}>
+                Keluar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </aside>
       <div className="min-w-0 flex-1">{children}</div>
     </div>

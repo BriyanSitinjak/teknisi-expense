@@ -54,9 +54,9 @@ export function StatusBadge({ status }: { status: string }) {
       className={cn(
         "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium",
         status === "draft" && "border-dashed text-muted-foreground",
-        status === "submitted" && "border-foreground",
+        status === "submitted" && "border-foreground bg-muted",
         status === "approved" && "border-foreground bg-foreground text-background",
-        status === "rejected" && "border-2 border-foreground",
+        status === "rejected" && "border-destructive text-destructive",
       )}
     >
       {label}

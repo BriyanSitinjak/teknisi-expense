@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { CalendarDays, Check, Keyboard, MapPin, User } from "lucide-react";
 import { FormError, NativeSelect, PageMain } from "@/components/app-ui";
 import { FormSection } from "@/components/form-step";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, errorMessage, fetchList } from "@/lib/api";
-import { formatExtraItem, formatRp } from "@/lib/format";
+import { formatExtraItem, formatIdInt, formatRp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string; code?: string; defaultCityId?: string | null };
@@ -46,6 +46,44 @@ function Field({
 
 const fieldClass = "h-9 rounded-full bg-white px-3";
 
+function digitsOnly(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits.replace(/^0+(?=\d)/, "");
+}
+
+function onDigits(setValue: (value: string) => void) {
+  return (event: ChangeEvent<HTMLInputElement>) => setValue(digitsOnly(event.target.value));
+}
+
+function RupiahInput({
+  id,
+  value,
+  onValue,
+  placeholder,
+}: {
+  id: string;
+  value: string;
+  onValue: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+        Rp
+      </span>
+      <Input
+        id={id}
+        className={cn(fieldClass, "pl-9 tabular-nums")}
+        inputMode="numeric"
+        autoComplete="off"
+        value={formatIdInt(value)}
+        onChange={onDigits(onValue)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
 export default function PerjalananPage() {
   const odoEndRef = useRef<HTMLInputElement>(null);
   const [technicians, setTechnicians] = useState<Option[]>([]);
@@ -79,15 +117,26 @@ export default function PerjalananPage() {
       setTechnicians(tech);
       setCities(city);
       setDestinations(dest);
-      if (tech[0]) setTechnicianId(tech[0].id);
     });
   }, []);
 
   useEffect(() => {
-    if (!technicianId || !tripDate) return;
-    api<Hint>(`/api/trips/odometer-hint?technicianId=${technicianId}&date=${tripDate}`).then((hint) => {
-      if (hint.odoStart != null) setOdoStart(String(hint.odoStart));
-    });
+    if (!technicianId || !tripDate) {
+      setOdoStart("");
+      return;
+    }
+    let cancelled = false;
+    api<Hint>(`/api/trips/odometer-hint?technicianId=${technicianId}&date=${tripDate}`)
+      .then((hint) => {
+        if (cancelled) return;
+        setOdoStart(hint.odoStart != null ? String(hint.odoStart) : "");
+      })
+      .catch(() => {
+        if (!cancelled) setOdoStart("");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [technicianId, tripDate]);
 
   useEffect(() => {
@@ -100,7 +149,7 @@ export default function PerjalananPage() {
   function onDestinationChange(id: string) {
     setDestinationId(id);
     const dest = destinations.find((d) => d.id === id);
-    if (dest?.defaultCityId) setCityId(dest.defaultCityId);
+    setCityId(dest?.defaultCityId ?? "");
   }
 
   async function save() {
@@ -160,7 +209,7 @@ export default function PerjalananPage() {
   const fuelEstimate = distance != null && rate ? estimatedFuelCost(distance, rate) : null;
   const totalEstimate = (fuelEstimate ?? 0) + toll + parking + meal;
   const canEstimate = distance != null;
-  const extraLine = formatExtraItem(extraTitle, extraValue);
+  const extraLine = formatExtraItem(extraTitle, extraValue ? formatRp(Number(extraValue)) : "");
 
   return (
     <PageMain>
@@ -197,9 +246,13 @@ export default function PerjalananPage() {
                     id="technician"
                     className="pl-9"
                     value={technicianId}
-                    onChange={(e) => setTechnicianId(e.target.value)}
+                    onChange={(e) => {
+                      setTechnicianId(e.target.value);
+                      setOdoStart("");
+                    }}
                     required
                   >
+                    <option value="">Pilih teknisi</option>
                     {technicians.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.code} — {t.name}
@@ -227,7 +280,7 @@ export default function PerjalananPage() {
           <FormSection
             step={2}
             title="Tujuan dan kota"
-            hint="Kota terisi dari tujuan, dan tetap bisa diubah."
+            hint="Kota mengikuti tujuan yang dipilih."
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field id="destination" label="Tujuan">
@@ -254,14 +307,17 @@ export default function PerjalananPage() {
                   id="city"
                   value={cityId}
                   onChange={(e) => setCityId(e.target.value)}
+                  disabled={!destinationId}
                   required
                 >
-                  <option value="">Pilih kota</option>
-                  {cities.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
+                  <option value="">{destinationId ? "Pilih kota" : "Pilih tujuan dulu"}</option>
+                  {cities
+                    .filter((city) => city.id === destinations.find((d) => d.id === destinationId)?.defaultCityId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                 </NativeSelect>
               </Field>
             </div>
@@ -274,8 +330,10 @@ export default function PerjalananPage() {
                   id="odoStart"
                   className={cn(fieldClass, "tabular-nums")}
                   inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
                   value={odoStart}
-                  onChange={(e) => setOdoStart(e.target.value)}
+                  onChange={onDigits(setOdoStart)}
                   required
                 />
               </Field>
@@ -285,8 +343,10 @@ export default function PerjalananPage() {
                   ref={odoEndRef}
                   className={cn(fieldClass, "tabular-nums")}
                   inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
                   value={odoEnd}
-                  onChange={(e) => setOdoEnd(e.target.value)}
+                  onChange={onDigits(setOdoEnd)}
                   required
                   aria-invalid={odoInvalid}
                 />
@@ -314,31 +374,13 @@ export default function PerjalananPage() {
           <FormSection step={4} title="Biaya tambahan dan keterangan">
             <div className="grid gap-4 sm:grid-cols-3">
               <Field id="toll" label="Toll">
-                <Input
-                  id="toll"
-                  className={cn(fieldClass, "tabular-nums")}
-                  inputMode="numeric"
-                  value={tollAmount}
-                  onChange={(e) => setTollAmount(e.target.value)}
-                />
+                <RupiahInput id="toll" value={tollAmount} onValue={setTollAmount} />
               </Field>
               <Field id="parking" label="Parkir">
-                <Input
-                  id="parking"
-                  className={cn(fieldClass, "tabular-nums")}
-                  inputMode="numeric"
-                  value={parkingAmount}
-                  onChange={(e) => setParkingAmount(e.target.value)}
-                />
+                <RupiahInput id="parking" value={parkingAmount} onValue={setParkingAmount} />
               </Field>
               <Field id="meal" label="Makan">
-                <Input
-                  id="meal"
-                  className={cn(fieldClass, "tabular-nums")}
-                  inputMode="numeric"
-                  value={mealAmount}
-                  onChange={(e) => setMealAmount(e.target.value)}
-                />
+                <RupiahInput id="meal" value={mealAmount} onValue={setMealAmount} />
               </Field>
               <div className="grid gap-3 sm:col-span-3">
                 <p className="text-sm text-muted-foreground">
@@ -355,12 +397,11 @@ export default function PerjalananPage() {
                     />
                   </Field>
                   <Field id="extraValue" label="Nilai">
-                    <Input
+                    <RupiahInput
                       id="extraValue"
-                      className={fieldClass}
                       value={extraValue}
-                      onChange={(e) => setExtraValue(e.target.value)}
-                      placeholder="Contoh: 15.000 atau lunas cash"
+                      onValue={setExtraValue}
+                      placeholder="15.000"
                     />
                   </Field>
                 </div>

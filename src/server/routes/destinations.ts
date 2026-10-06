@@ -41,7 +41,7 @@ const createRouteDef = createRoute({
     body: jsonBody(
       z.object({
         name: z.string().trim().min(1).max(150),
-        defaultCityId: z.uuid().nullable().optional(),
+        defaultCityId: z.uuid(),
       }),
     ),
   },
@@ -69,12 +69,10 @@ export const destinationRoutes = new OpenAPIHono<AppEnv>()
   })
   .openapi(createRouteDef, async (c) => {
     const { name, defaultCityId } = c.req.valid("json");
-    if (defaultCityId) {
-      const city = await prisma.city.findUnique({ where: { id: defaultCityId } });
-      if (!city) throw new NotFoundError("Kota tidak ditemukan");
-    }
+    const city = await prisma.city.findUnique({ where: { id: defaultCityId } });
+    if (!city) throw new NotFoundError("Kota tidak ditemukan");
     const destination = await prisma.destination.create({
-      data: { name, defaultCityId: defaultCityId ?? null },
+      data: { name, defaultCityId },
       include: { defaultCity: { select: { id: true, name: true } } },
     });
     return c.json(destination, 201);

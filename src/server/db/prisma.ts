@@ -16,6 +16,11 @@ function createPrisma() {
   return new PrismaClient({ adapter });
 }
 
+// A client created before `prisma generate` keeps the old enum. Replace it when this module reloads.
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = undefined;
+}
+
 export const prisma = globalForPrisma.prisma ?? createPrisma();
 
 if (process.env.NODE_ENV !== "production") {

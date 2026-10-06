@@ -18,6 +18,7 @@ const periodSchema = z.object({
   branch: z.object({ id: z.string(), code: z.string(), name: z.string() }).optional(),
   tripCount: z.number(),
   totalAmount: z.number(),
+  lastReason: z.string().nullable().optional(),
 });
 
 const listRoute = createRoute({
@@ -60,7 +61,10 @@ const getRoute = createRoute({
   },
 });
 
-function actionRoute(action: "submit" | "approve" | "reject" | "reopen", roles: Array<"hr" | "branch_head">) {
+function actionRoute(
+  action: "submit" | "approve" | "reject" | "reopen" | "withdraw",
+  roles: Array<"hr" | "branch_head">,
+) {
   return createRoute({
     method: "post",
     path: `/periods/{id}/${action}`,
@@ -81,6 +85,7 @@ const submitRoute = actionRoute("submit", ["hr"]);
 const approveRoute = actionRoute("approve", ["branch_head", "hr"]);
 const rejectRoute = actionRoute("reject", ["branch_head", "hr"]);
 const reopenRoute = actionRoute("reopen", ["branch_head", "hr"]);
+const withdrawRoute = actionRoute("withdraw", ["hr"]);
 
 async function totalsFor(periodId: string) {
   const agg = await prisma.trip.aggregate({
@@ -115,6 +120,12 @@ export const periodRoutes = new OpenAPIHono<AppEnv>()
           branch: { select: { id: true, code: true, name: true } },
           _count: { select: { trips: true } },
           trips: { select: { totalAmount: true } },
+          events: {
+            where: { eventType: "rejected" },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { reason: true },
+          },
         },
       }),
     ]);
@@ -144,5 +155,9 @@ export const periodRoutes = new OpenAPIHono<AppEnv>()
   })
   .openapi(reopenRoute, async (c) => {
     const period = await transitionPeriod(c.req.valid("param").id, "reopen", c.get("user"), c.req.valid("json")?.reason);
+    return c.json(serializePeriod(period, await totalsFor(period.id)), 200);
+  })
+  .openapi(withdrawRoute, async (c) => {
+    const period = await transitionPeriod(c.req.valid("param").id, "withdraw", c.get("user"));
     return c.json(serializePeriod(period, await totalsFor(period.id)), 200);
   });

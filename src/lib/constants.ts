@@ -17,7 +17,7 @@ export function isWritablePeriod(status: string) {
 
 export const PERIOD_STATUS_LABEL: Record<string, string> = {
   draft: "Draf",
-  submitted: "Diajukan",
+  submitted: "Menunggu",
   approved: "Disetujui",
   rejected: "Ditolak",
 };

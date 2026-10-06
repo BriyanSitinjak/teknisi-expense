@@ -2,20 +2,49 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Building2, MapPin, Plus, Users } from "lucide-react";
-import { DataTable, FormError, NativeSelect, PageMain, StatTile } from "@/components/app-ui";
+import { DataTable, FormError, NativeSelect, PageMain, StatTile, StatusBadge } from "@/components/app-ui";
 import { FormStep, MasterForm } from "@/components/form-step";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, errorMessage, fetchList } from "@/lib/api";
+import { formatDateId, formatKm, formatMonthId, formatRp, formatTripKeterangan } from "@/lib/format";
 import { cn, matchesQuery } from "@/lib/utils";
 
 type Tab = "technicians" | "destinations";
 type ListState = "loading" | "ready" | "error";
 type StatusFilter = "all" | "active" | "inactive";
 type City = { id: string; name: string };
-type Technician = { id: string; code: string; name: string; isActive: boolean };
+type LastTrip = { tripDate: string; odoEnd: number; destinationName: string } | null;
+type Technician = { id: string; code: string; name: string; isActive: boolean; lastTrip: LastTrip };
 type Destination = { id: string; name: string; defaultCity: { id: string; name: string } | null };
+type TripHistory = {
+  id: string;
+  tripDate: string;
+  destinationName: string;
+  cityName: string;
+  odoStart: number;
+  odoEnd: number;
+  distanceKm: number;
+  fuelCost: number;
+  tollAmount: number;
+  parkingAmount: number;
+  mealAmount: number;
+  totalAmount: number;
+  notes: string | null;
+  extraTitle: string | null;
+  extraValue: string | null;
+  periodStatus: string;
+  periodYear: number;
+  periodMonth: number;
+};
 
 const fieldClass = "h-9 rounded-full bg-white px-3";
 
@@ -117,12 +146,14 @@ export default function MasterPage() {
         />
       </div>
 
-      <div className="mt-6 inline-flex flex-wrap gap-1 rounded-full bg-white p-1">
+      <div className="mt-6 grid w-full grid-cols-2 gap-1 rounded-full border border-border bg-muted p-1">
         <button
           type="button"
           className={cn(
-            "h-9 rounded-full px-4 text-sm font-medium transition-colors",
-            tab === "technicians" ? "bg-foreground text-background" : "text-muted-foreground",
+            "h-9 rounded-full border text-sm font-medium transition-colors",
+            tab === "technicians"
+              ? "border-foreground bg-foreground text-background"
+              : "border-border bg-white text-foreground",
           )}
           onClick={() => setTab("technicians")}
         >
@@ -131,8 +162,10 @@ export default function MasterPage() {
         <button
           type="button"
           className={cn(
-            "h-9 rounded-full px-4 text-sm font-medium transition-colors",
-            tab === "destinations" ? "bg-foreground text-background" : "text-muted-foreground",
+            "h-9 rounded-full border text-sm font-medium transition-colors",
+            tab === "destinations"
+              ? "border-foreground bg-foreground text-background"
+              : "border-border bg-white text-foreground",
           )}
           onClick={() => setTab("destinations")}
         >
@@ -174,6 +207,7 @@ function TechnicianMaster({
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [historyFor, setHistoryFor] = useState<Technician | null>(null);
   const visible = rows.filter((row) => {
     if (status === "active" && !row.isActive) return false;
     if (status === "inactive" && row.isActive) return false;
@@ -217,7 +251,7 @@ function TechnicianMaster({
     <section className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <DataTable
         title="Daftar teknisi"
-        description="Nama dan kode yang dipakai di Input perjalanan."
+        description="Nama, kode, dan km akhir dari trip terakhir."
         search={{ value: query, onChange: setQuery, placeholder: "Cari kode atau nama" }}
         extra={
           <NativeSelect
@@ -231,7 +265,7 @@ function TechnicianMaster({
             <option value="inactive">Nonaktif</option>
           </NativeSelect>
         }
-        columns={["Kode", "Nama", "Status", "Aksi"]}
+        columns={["Kode", "Nama", "Trip terakhir", "Status", "Aksi"]}
         loading={listState === "loading"}
         isEmpty={listState !== "ready" || visible.length === 0}
         empty={emptyListCopy("teknisi", query, listState)}
@@ -248,6 +282,18 @@ function TechnicianMaster({
               </div>
             </td>
             <td className="px-5 py-3.5">
+              {row.lastTrip ? (
+                <div>
+                  <p className="tabular-nums">{formatKm(row.lastTrip.odoEnd)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDateId(row.lastTrip.tripDate)} · {row.lastTrip.destinationName}
+                  </p>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </td>
+            <td className="px-5 py-3.5">
               <span
                 className={cn(
                   "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium",
@@ -258,9 +304,14 @@ function TechnicianMaster({
               </span>
             </td>
             <td className="px-5 py-3.5">
-              <Button size="sm" variant="outline" className="rounded-full" onClick={() => toggleActive(row)}>
-                {row.isActive ? "Nonaktifkan" : "Aktifkan"}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => setHistoryFor(row)}>
+                  Riwayat
+                </Button>
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => toggleActive(row)}>
+                  {row.isActive ? "Nonaktifkan" : "Aktifkan"}
+                </Button>
+              </div>
             </td>
           </tr>
         ))}
@@ -304,7 +355,127 @@ function TechnicianMaster({
           </Button>
         </MasterForm>
       </div>
+      <TripHistoryDialog technician={historyFor} onClose={() => setHistoryFor(null)} />
     </section>
+  );
+}
+
+function TripHistoryDialog({
+  technician,
+  onClose,
+}: {
+  technician: Technician | null;
+  onClose: () => void;
+}) {
+  const [trips, setTrips] = useState<TripHistory[]>([]);
+  const [total, setTotal] = useState(0);
+  const [state, setState] = useState<ListState>("loading");
+  const [shown, setShown] = useState<Technician | null>(null);
+
+  useEffect(() => {
+    if (technician) setShown(technician);
+  }, [technician]);
+
+  useEffect(() => {
+    if (!technician) return;
+    let cancelled = false;
+    setState("loading");
+    setTrips([]);
+    setTotal(0);
+    api<{ data: TripHistory[]; total: number }>(`/api/technicians/${technician.id}/trips?limit=100`)
+      .then((body) => {
+        if (cancelled) return;
+        setTrips(body.data);
+        setTotal(body.total);
+        setState("ready");
+      })
+      .catch(() => {
+        if (!cancelled) setState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [technician]);
+
+  const visibleCount = trips.length;
+
+  return (
+    <Dialog open={technician != null} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Riwayat perjalanan</DialogTitle>
+          <DialogDescription>
+            {shown ? `${shown.code} ${shown.name}` : ""}
+            {state === "ready"
+              ? total === 0
+                ? " belum punya perjalanan."
+                : ` · ${total} perjalanan${visibleCount < total ? `, menampilkan ${visibleCount} terbaru` : ""}.`
+              : ""}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[min(60vh,32rem)] overflow-auto rounded-xl border border-border">
+          {state === "loading" ? (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">Memuat riwayat…</p>
+          ) : state === "error" ? (
+            <p className="px-4 py-8 text-center text-sm text-destructive" role="alert">
+              Gagal memuat riwayat perjalanan.
+            </p>
+          ) : trips.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">Belum ada perjalanan.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Tanggal</th>
+                  <th className="px-4 py-2 font-medium">Tujuan</th>
+                  <th className="px-4 py-2 font-medium">Km</th>
+                  <th className="px-4 py-2 font-medium">Biaya</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trips.map((trip) => {
+                  const note = formatTripKeterangan(trip.notes, trip.extraTitle, trip.extraValue);
+                  return (
+                    <tr key={trip.id} className="border-t border-border/70 align-top">
+                      <td className="px-4 py-3">
+                        <p>{formatDateId(trip.tripDate)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatMonthId(trip.periodYear, trip.periodMonth)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p>{trip.destinationName}</p>
+                        <p className="text-xs text-muted-foreground">{trip.cityName}</p>
+                        {note ? <p className="mt-1 text-xs text-muted-foreground">{note}</p> : null}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">
+                        <p>
+                          {formatKm(trip.odoStart)} → {formatKm(trip.odoEnd)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{formatKm(trip.distanceKm)}</p>
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">
+                        <p className="font-medium">{formatRp(trip.totalAmount)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          BBM {formatRp(trip.fuelCost)} · Tol {formatRp(trip.tollAmount)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Parkir {formatRp(trip.parkingAmount)} · Makan {formatRp(trip.mealAmount)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={trip.periodStatus} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -356,6 +527,10 @@ function DestinationMaster({
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!defaultCityId) {
+      setError("Pilih kota untuk tujuan ini");
+      return;
+    }
     setError(null);
     setPending(true);
     try {
@@ -363,7 +538,7 @@ function DestinationMaster({
         method: "POST",
         body: JSON.stringify({
           name,
-          defaultCityId: defaultCityId || null,
+          defaultCityId,
         }),
       });
       setName("");
@@ -472,13 +647,17 @@ function DestinationMaster({
                 className={fieldClass}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Contoh: Dealer Karawang"
+                placeholder="Contoh: Gudang Kosambi"
                 required
               />
             </FormStep>
           </ol>
           <FormError message={error} />
-          <Button type="submit" className="mt-5 h-9 w-full rounded-full" disabled={pending || !name.trim()}>
+          <Button
+            type="submit"
+            className="mt-5 h-9 w-full rounded-full"
+            disabled={pending || !name.trim() || !defaultCityId}
+          >
             {pending ? "Menyimpan…" : "Simpan tujuan"}
           </Button>
         </MasterForm>

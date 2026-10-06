@@ -54,7 +54,13 @@ const tripBody = z.object({
   mealAmount: z.number().int().nonnegative().default(0),
   notes: z.string().max(500).nullable().optional(),
   extraTitle: z.string().trim().max(100).nullable().optional(),
-  extraValue: z.string().trim().max(200).nullable().optional(),
+  extraValue: z
+    .string()
+    .trim()
+    .regex(/^\d+$/, "Nilai harus berupa angka")
+    .max(12)
+    .nullable()
+    .optional(),
 });
 
 const listRoute = createRoute({

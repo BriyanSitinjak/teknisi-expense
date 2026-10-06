@@ -89,23 +89,22 @@ async function main() {
     });
   }
 
-  const cities = ["Jakarta", "Bekasi", "Karawang", "Cikarang", "Tangerang"];
-  for (const name of cities) {
-    const found = await prisma.city.findFirst({ where: { name: { equals: name, mode: "insensitive" } } });
-    if (!found) await prisma.city.create({ data: { name } });
-  }
-
-  const jakartaCity = await prisma.city.findFirst({ where: { name: "Jakarta" } });
-  const bekasi = await prisma.city.findFirst({ where: { name: "Bekasi" } });
-
-  const destinations = [
-    { name: "Pabrik Cikarang", defaultCityId: jakartaCity?.id ?? null },
-    { name: "Gudang Bekasi", defaultCityId: bekasi?.id ?? null },
-    { name: "Kantor Pusat", defaultCityId: jakartaCity?.id ?? null },
+  const pairs = [
+    { destination: "Gudang Kosambi", city: "Kosambi" },
+    { destination: "Kantor Pusat Jakarta", city: "Jakarta" },
   ];
-  for (const dest of destinations) {
-    const found = await prisma.destination.findFirst({ where: { name: dest.name } });
-    if (!found) await prisma.destination.create({ data: dest });
+  for (const pair of pairs) {
+    let city = await prisma.city.findFirst({
+      where: { name: { equals: pair.city, mode: "insensitive" } },
+    });
+    if (!city) city = await prisma.city.create({ data: { name: pair.city } });
+
+    const found = await prisma.destination.findFirst({ where: { name: pair.destination } });
+    if (!found) {
+      await prisma.destination.create({
+        data: { name: pair.destination, defaultCityId: city.id },
+      });
+    }
   }
 
   const existingTech = await prisma.technician.findUnique({ where: { code: "JKT-001" } });

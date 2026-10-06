@@ -39,6 +39,11 @@ async function assertMasters(tx: Prisma.TransactionClient, input: TripInput) {
   }
   if (!city) throw new NotFoundError("Kota tidak ditemukan");
   if (!destination) throw new NotFoundError("Tujuan tidak ditemukan");
+  if (destination.defaultCityId !== city.id) {
+    throw new ValidationError("Kota harus sesuai dengan tujuan", {
+      cityId: "Kota harus sesuai dengan tujuan",
+    });
+  }
 
   return technician;
 }

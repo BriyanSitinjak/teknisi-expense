@@ -28,6 +28,7 @@ enum PeriodEventType {
   approved
   rejected
   reopened
+  withdrawn
 
   @@map("period_event_type")
 }
